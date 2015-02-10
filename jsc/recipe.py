@@ -19,7 +19,9 @@ def docopt_cmd(func):
     def fn(remoto_exec, state, arg):
         # make sure it's of type str and not unicode/byte
         # shlex tokenizes the string like python does for sys.argv
-        arg = shlex.split("{}".format(arg))
+        # arg = shlex.split("{}".format(arg))
+        log.info(arg)
+        arg = shlex.split(arg)
         opt = docopt(func.__doc__, arg)
         return func(remoto_exec, state, opt)
     return fn

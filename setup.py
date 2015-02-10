@@ -4,7 +4,7 @@ import sys
 
 from setuptools import setup, find_packages
 
-from jsc import __version__, __description__
+from jsc import __version__, __description__, __long_description__
 
 
 def read(fname):
@@ -25,11 +25,12 @@ setup(
     author='Jumpstarter',
     author_email='team@jumpstarter.io',
     description=__description__,
-    long_description=read('README.md'),
+    long_description=__long_description__,
     license='MIT',
     keywords='jumpstarter js jsc deploy',
     url="https://github.com/jumpstarter-io/jsc",
-    zip_safe=False,
+    zip_safe=True,
+    include_package_data=True,
 
     install_requires=[
         'setuptools',
