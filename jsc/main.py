@@ -428,16 +428,16 @@ def update_self():
         log.info("Checking for updates of jsc")
         try:
             response = url.urlopen(PYPI_JSON)
-            package_json = json.loads(response.read())
+            package_json = json.loads(response.read().decode())
             if dist_version.StrictVersion(package_json['info']['version']) > dist_version.StrictVersion(__version__):
-                stop("There's a new version available, update with '# pip -U install jsc'")
+                stop("There's a new version available, update with '# pip install -U jsc'")
             else:
                 log.info("You're running the latest version of jsc")
             with open(last_update_file, "w") as f:
                 f.truncate(0)
                 f.write(str(epoch_time))
         except (url.URLError, ValueError):
-            log.warn("Could not check for updates, try '# pip -U install jsc'")
+            log.warn("Could not check for updates, try '# pip install -U jsc'")
 
 
 def parse_args_main(args):
