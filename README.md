@@ -100,7 +100,7 @@ run $cmd $args.. | run arbitrary process in $PATH
 install $src $dst | copy file 
 append $file $text | append $text to $file
 put $file $text | create/replace $file with $text
-replace $file $find $replace | find first occurance of $find and replaces with $replace in $file
+replace $file $find $replace | find all occurances of $find and replaces with $replace in $file
 insert $file $find $insert | like replace but inserts after occurance instead of replacing
 rinsert $file $find $insert | like insert but searches from end
 
