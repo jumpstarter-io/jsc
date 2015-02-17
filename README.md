@@ -43,7 +43,7 @@ remove the current application code:
 
 Then install it from a recipe:
 
-    deploy https://github.com/jumpstarter-io/wordpress-recipe.git
+    deploy https://github.com/jumpstarter-io/recipe-sample-wordpress.git
 
 Installation is now complete, you can test it by starting the application:
 
