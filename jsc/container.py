@@ -34,6 +34,7 @@ STATE_DIR = "/app/state"
 JSC_DIR = os.path.join(CODE_DIR, ".jsc")
 BACKUPS_DIR = os.path.join(JSC_DIR, "backups")
 BACKUPS_SEQ_FILE_PATH = os.path.join(BACKUPS_DIR, "seq")
+NEW_BACKUP_DIR = os.path.join(BACKUPS_DIR, "new-backup")
 LOCK_FILE = os.path.join(JSC_DIR, "lock")
 RECIPE_PATH = os.path.join(JSC_DIR, "recipe")
 NEW_RECIPE_PATH = os.path.join(JSC_DIR, "new-recipe")
@@ -237,6 +238,8 @@ def init():
             f.write("1")
     if os.path.exists(NEW_RECIPE_PATH):
         shutil.rmtree(NEW_RECIPE_PATH)
+    if os.path.exists(NEW_BACKUP_DIR):
+        shutil.rmtree(NEW_BACKUP_DIR)
 
 
 @pythonify_args
@@ -453,6 +456,7 @@ def clean(datasets):
                 if node not in ("lost+found", ".jsc", ".pacman", ".config"):
                     node_path = os.path.join(CODE_DIR, node)
                     subprocess.check_call("rm -rf {node_path}".format(node_path=node_path), shell=True)
+            init()
             log("{dataset} was cleaned".format(dataset=dataset))
 
 
