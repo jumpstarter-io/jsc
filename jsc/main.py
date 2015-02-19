@@ -18,6 +18,8 @@ import signal
 import subprocess
 import sys
 import time
+import fnmatch
+import re
 try:
     import recipe
     import logger as log
@@ -72,13 +74,14 @@ def rsync(conn, src, dst):
                 with open(jscignore) as fh:
                     jscignore_lines = [x.rstrip() for x in fh.readlines() if not x.startswith("#") and len(x.rstrip()) > 0]
                     self.excluded_paths = list(set(self.excluded_paths) | set(jscignore_lines))
+            self.exclude_regxs = [re.compile(fnmatch.translate(x)) for x in self.excluded_paths]
         def _report_send_file(self, gateway, modified_rel_path):
             log.info("syncing file: %s" % modified_rel_path)
         def filter(self, path):
             if path.startswith("./"):
                 path = os.sep.join(path.split(os.sep)[1:])
-            for excluded_path in self.excluded_paths:
-                if path.startswith(excluded_path):
+            for reobj in self.exclude_regxs:
+                if reobj.match(path):
                     return False
             return True
 
