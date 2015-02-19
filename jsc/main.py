@@ -378,7 +378,7 @@ class Console(cmd.Cmd):
         return -1
 
     def do_quit(self, args):
-        self.do_exit("")
+        return self.do_exit(args)
 
     def do_EOF(self, args):
         """Exit on system end of file character"""
