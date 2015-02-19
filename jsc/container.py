@@ -246,6 +246,14 @@ def sync_dir(directory):
     os.close(fd)
 
 
+def disk_usage_stats_pretty(dir_path):
+    stat = os.statvfs(dir_path)
+    total_size = stat.f_bsize * stat.f_blocks
+    used_size = total_size - (stat.f_bsize * stat.f_bavail)
+    percent_used = "{:.1%}".format(used_size / total_size)
+    return sizeof_fmt(total_size), sizeof_fmt(used_size), percent_used
+
+
 @pythonify_args
 def status_short(local_version, verbose):
     env = env_json()
@@ -254,6 +262,33 @@ def status_short(local_version, verbose):
     name = env["ident"]["user"]["name"]
     info = {"container_id": container_id, "email": email, "name": name, "version": local_version}
     log_ok("jsc v{version} attached to assembly [{container_id}] by [{name} <{email}>]".format(**info))
+    code_total_size, code_used_size, code_percent_used = disk_usage_stats_pretty(CODE_DIR)
+    log_ok("{code_dir}: {used} used of {total} ({percent_used} free)".format(code_dir=CODE_DIR,
+                                                                             used=code_used_size,
+                                                                             total=code_total_size,
+                                                                             percent_used=code_percent_used))
+    recipe_file = os.path.join(RECIPE_PATH, "src", "Jumpstart-Recipe")
+    recipe_name = "<broken/unknown>"
+    recipe_deploy_time = None
+    if os.path.exists(RECIPE_PATH) and os.path.exists(recipe_file):
+        with open(recipe_file) as f:
+            for line in f.readlines():
+                clean_line = line.strip()
+                if clean_line.startswith("name"):
+                    recipe_name = clean_line[len("name")+1:]
+        with open(os.path.join(RECIPE_PATH, "deploy-time")) as f:
+            recipe_deploy_time = f.read().replace("T", " ")
+    log_ok("    deployed recipe: {recipe_name}".format(recipe_name=recipe_name))
+    if recipe_deploy_time is not None:
+        log_ok("        at {recipe_deploy_time}".format(recipe_deploy_time=recipe_deploy_time))
+    backups_count = len(backup_ls())
+    log_ok("total backups: {num_backups}".format(num_backups="<none>" if backups_count == 0 else backups_count))
+
+    state_total_size, state_used_size, state_percent_used = disk_usage_stats_pretty(STATE_DIR)
+    log_ok("{code_dir}: {used} used of {total} ({percent_used} free)".format(code_dir=STATE_DIR,
+                                                                             used=state_used_size,
+                                                                             total=state_total_size,
+                                                                             percent_used=state_percent_used))
     if verbose:
         try:
             with open(os.path.join(RECIPE_PATH, "software-list")) as f:
@@ -265,9 +300,8 @@ def status_short(local_version, verbose):
                                                                                     commit=software["gd"][path]["commit"][0:8])
                                       for path in software["gd"]])
                 log_ok("\nDeployed packages:\n{pkg}\n\nGit deployed software:\n{gd}".format(pkg=package_lines, gd=gd_lines))
-        except FileNotFoundError:
+        except (IOError, FileNotFoundError):
             pass
-    return True
 
 
 @pythonify_args
