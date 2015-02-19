@@ -64,14 +64,24 @@ def stop(message):
 
 def rsync(conn, src, dst):
     class JSRSync(execnet.RSync):
+        def __init__(self, src):
+            super(JSRSync, self).__init__(src)
+            jscignore = ".jscignore"
+            self.excluded_paths = [jscignore, ".svn", ".git"]
+            if os.path.exists(jscignore):
+                with open(jscignore) as fh:
+                    jscignore_lines = [x.rstrip() for x in fh.readlines() if not x.startswith("#") and len(x.rstrip()) > 0]
+                    self.excluded_paths = list(set(self.excluded_paths) | set(jscignore_lines))
         def _report_send_file(self, gateway, modified_rel_path):
             log.info("syncing file: %s" % modified_rel_path)
         def filter(self, path):
-            excluded_dirs = ['.svn', '.git']
-            last_part = path.split(os.sep).pop()
-            if last_part in excluded_dirs:
-                return False
+            if path.startswith("./"):
+                path = os.sep.join(path.split(os.sep)[1:])
+            for excluded_path in self.excluded_paths:
+                if path.startswith(excluded_path):
+                    return False
             return True
+
     sync = JSRSync(src)
     sync.add_target(conn.gateway, dst)
     sync.send()
