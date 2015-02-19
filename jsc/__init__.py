@@ -1,4 +1,4 @@
-__version__ = "1.0.3"
+__version__ = "2.0"
 __description__ = "Jumpstarter Console"
 __long_description__ = """
 Jumpstarter Console - A command line tool for managing your Jumpstarter projects.

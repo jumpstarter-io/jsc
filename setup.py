@@ -34,15 +34,18 @@ setup(
 
     install_requires=[
         'setuptools',
-        'remoto',
         'choice',
         'docopt',
-        'giturlparse.py'
+        'giturlparse.py',
+        'pyparsing',
+        'gevent'
         ] + install_requires,
 
     entry_points={
         'console_scripts': [
-            'jsc = jsc.main:main',
+            'jsc = jsc.client:main',
             ]
-        }
+        },
+
+    test_suite='jsc.tests.test_all'
     )

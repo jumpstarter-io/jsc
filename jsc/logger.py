@@ -7,45 +7,45 @@ class bcolors:
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
     WARNING = '\033[93m'
-    WHITE = '\033[97m'
     FAIL = '\033[91m'
     ENDC = '\033[0m'
     BOLD = "\033[1m"
+    NONE = ''
 
     def disable(self):
         self.HEADER = ''
         self.OKBLUE = ''
         self.OKGREEN = ''
         self.WARNING = ''
-        self.WHITE = ''
         self.FAIL = ''
         self.ENDC = ''
+        self.NONE = ''
 
 
 print_lock = threading.Lock()
 
 
-def print_locked(message, bcolor, printstr="%s%s%s\n"):
+def print_locked(message, bcolor, f, print_fmt="%s%s%s\n"):
     with print_lock:
-        sys.stderr.write(printstr % (bcolor, message, bcolors.ENDC))
-        sys.stderr.flush()
+        f.write(print_fmt % (bcolor, message, bcolors.ENDC))
+        f.flush()
 
 
-def info(message):
-    print_locked(message, bcolors.HEADER)
+def info(message, f=sys.stderr):
+    print_locked(message, bcolors.HEADER, f)
 
 
-def white(message):
-    print_locked(message, bcolors.WHITE)
+def white(message, f=sys.stderr):
+    print_locked(message, bcolors.NONE, f)
 
 
-def ok(message):
-    print_locked(message, bcolors.OKGREEN)
+def ok(message, f=sys.stderr):
+    print_locked(message, bcolors.OKGREEN, f)
 
 
-def warn(message):
-    print_locked(message, bcolors.WARNING)
+def warn(message, f=sys.stderr):
+    print_locked(message, bcolors.WARNING, f)
 
 
-def err(message):
-    print_locked(message, bcolors.FAIL, "%sError: %s%s\n")
+def err(message, f=sys.stderr):
+    print_locked(message, bcolors.FAIL, f, "%sError: %s%s\n")
