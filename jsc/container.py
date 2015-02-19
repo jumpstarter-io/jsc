@@ -416,7 +416,7 @@ def clean(datasets):
             pacman_db_dir = os.path.join(STATE_DIR, ".pacman", "db")
             subprocess.check_call("rm -rf {pacman_db_dir}".format(pacman_db_dir=pacman_db_dir), shell=True)
             for node in os.listdir(CODE_DIR):
-                if node not in ("lost+found", ".jsc", ".pacman"):
+                if node not in ("lost+found", ".jsc", ".pacman", ".config"):
                     node_path = os.path.join(CODE_DIR, node)
                     subprocess.check_call("rm -rf {node_path}".format(node_path=node_path), shell=True)
             log("{dataset} was cleaned".format(dataset=dataset))

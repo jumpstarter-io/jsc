@@ -66,6 +66,12 @@ def rsync(conn, src, dst):
     class JSRSync(execnet.RSync):
         def _report_send_file(self, gateway, modified_rel_path):
             log.info("syncing file: %s" % modified_rel_path)
+        def filter(self, path):
+            excluded_dirs = ['.svn', '.git']
+            last_part = path.split(os.sep).pop()
+            if last_part in excluded_dirs:
+                return False
+            return True
     sync = JSRSync(src)
     sync.add_target(conn.gateway, dst)
     sync.send()
