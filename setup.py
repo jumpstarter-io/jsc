@@ -36,7 +36,8 @@ setup(
         'setuptools',
         'remoto',
         'choice',
-        'docopt'
+        'docopt',
+        'giturlparse.py'
         ] + install_requires,
 
     entry_points={

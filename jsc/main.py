@@ -20,6 +20,7 @@ import sys
 import time
 import fnmatch
 import re
+from giturlparse import parse as gitparse, validate
 try:
     import recipe
     import logger as log
@@ -229,11 +230,15 @@ class Console(cmd.Cmd):
                 repo_url = "git://github/" + path_parts[0:].join(":") + ".git"
             else:
                 repo_url = path
-            success, msg = self._remoto_exec.git_clone(repo_url, "src", 1, None, None)
-            if not success:
-                log.err(msg)
+            if gitparse(repo_url).valid:
+                success, msg = self._remoto_exec.git_clone(repo_url, "src", 1, None, None)
+                if not success:
+                    log.err(msg)
+                    return
+                self._remoto_exec.rmtree(os.path.join(NEW_RECIPE_SRC, ".git"))
+            else:
+                log.err("Could not find recipe [{recipe_path}]".format(recipe_path=path))
                 return
-            self._remoto_exec.rmtree(os.path.join(NEW_RECIPE_SRC, ".git"))
         # 3. A disk sync is performed on /app/code.
         self._remoto_exec.sync_dir('/')
         # 4. Syncing the jumpstart repo so it's up to date.
