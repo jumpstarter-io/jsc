@@ -229,7 +229,10 @@ class Console(cmd.Cmd):
                 repo_url = "git://github/" + path_parts[0:].join(":") + ".git"
             else:
                 repo_url = path
-            self._remoto_exec.git_clone(repo_url, "src", 1, None, None)
+            success, msg = self._remoto_exec.git_clone(repo_url, "src", 1, None, None)
+            if not success:
+                log.err(msg)
+                return
             self._remoto_exec.rmtree(os.path.join(NEW_RECIPE_SRC, ".git"))
         # 3. A disk sync is performed on /app/code.
         self._remoto_exec.sync_dir('/')

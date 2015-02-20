@@ -602,7 +602,10 @@ def git_clone(src, dst, depth, branch, pkey):
         clone_cmd = git_cmd
     else:
         clone_cmd = "ssh-agent (ssh-add {pkey} && {git_cmd})".format(pkey=pkey, git_cmd=git_cmd)
-    git_ret = subprocess.check_call(clone_cmd, shell=True)
+    try:
+        git_ret = subprocess.check_call(clone_cmd, shell=True)
+    except subprocess.CalledProcessError as e:
+        return False, str(e)
     if git_ret != 0:
         return False, "git clone failed"
     with open(os.path.join(dst, ".git", "HEAD")) as head_f:
