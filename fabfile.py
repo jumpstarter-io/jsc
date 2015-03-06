@@ -24,7 +24,7 @@ def released_version():
 
 def check_version(rel_ver, this_ver):
     if dist_version.StrictVersion(rel_ver) >= dist_version.StrictVersion(this_ver):
-        print("release version [{this}] is newer than what you're trying to deploy")
+        print("released version [{this_ver}] is newer than or same as what you're trying to deploy [{rel_ver}]".format(this_ver=this_ver, rel_ver=rel_ver))
         return False
     return True
 
