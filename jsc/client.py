@@ -619,8 +619,12 @@ def main(args=None):
         while rpc is None:
             try:
                 rpc = SshJsonRpc(ssh_username, password, parsed.pkey, host=parsed.host, port=int(parsed.port))
+                password = None
             except SshRpcKeyEncrypted:
-                password = getpass.getpass("Password for pubkey:")
+                if pkey is not None:
+                    password = getpass.getpass("Password for pubkey:")
+                else:
+                    fail("Encrypted keys require the -i and -P flags.")
             except SshRpcKeyNoAuthMethod:
                 password = getpass.getpass("No keys, log in with password:")
                 pkey = None
