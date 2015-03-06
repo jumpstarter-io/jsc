@@ -389,6 +389,10 @@ class SshRpcKeyNoAuthMethod(SshRpcError):
     pass
 
 
+class SshRpcKeyAuthFailed(SshRpcError):
+    pass
+
+
 class SshJsonRpc():
     rpc_id = 0
 
@@ -412,9 +416,12 @@ class SshJsonRpc():
         except paramiko.ssh_exception.PasswordRequiredException as e:
             if e.message == "Private key file is encrypted":
                 raise SshRpcKeyEncrypted()
+            raise SshRpcError()
         except paramiko.ssh_exception.SSHException as e:
             if e.message == "No authentication methods available":
                 raise SshRpcKeyNoAuthMethod()
+            if e.message == "Authentication failed.":
+                raise SshRpcKeyAuthFailed()
             raise SshRpcError()
         self.ssh_transport = self.ssh_client.get_transport()
         self.ssh_transport.set_keepalive(30)
@@ -607,14 +614,18 @@ def main(args=None):
             password = getpass.getpass()
         else:
             password = None
+        pkey = parsed.pkey
         rpc = None
         while rpc is None:
             try:
                 rpc = SshJsonRpc(ssh_username, password, parsed.pkey, host=parsed.host, port=int(parsed.port))
             except SshRpcKeyEncrypted:
-                rpc = SshJsonRpc(ssh_username, getpass.getpass("Password for pubkey:"), parsed.pkey, host=parsed.host, port=int(parsed.port))
+                password = getpass.getpass("Password for pubkey:")
             except SshRpcKeyNoAuthMethod:
-                rpc = SshJsonRpc(ssh_username, getpass.getpass("No keys, log in with password:"), None, host=parsed.host, port=int(parsed.port))
+                password = getpass.getpass("No keys, log in with password:")
+                pkey = None
+            except SshRpcKeyAuthFailed:
+                fail("Authentication failed!")
         try:
             is_assembly = rpc.do_assert_is_assembly()
             if not is_assembly:
