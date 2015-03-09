@@ -12,7 +12,7 @@ def main():
             return
     # /tmp/server does not exist or is not the correct version
 
-    subprocess.check_output("curl -o /tmp/server http://jsc.jumpstarter.io/server-{version}".format(version=client_version), shell=True, stderr=fnull)
+    subprocess.check_output("curl -f -o /tmp/server http://jsc.jumpstarter.io/server-{version}".format(version=client_version), shell=True, stderr=fnull)
     subprocess.check_output("chmod +x /tmp/server".format(version=client_version), shell=True, stderr=fnull)
 
 
