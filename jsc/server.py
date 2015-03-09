@@ -588,7 +588,7 @@ def rc_run(args):
     """
     state = args["state"]
     log("running command: {}".format(args["args"][0]))
-    cmd = args["args"][0].split(" ")
+    cmd = shlex.split(args["args"][0])
     subproc(cmd)
     return state, None
 
