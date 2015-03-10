@@ -412,7 +412,7 @@ class SshJsonRpc():
             connect_kw["key_filename"] = key_filename
             connect_kw["look_for_keys"] = False
         try:
-            self.ssh_client.connect(host, port, **connect_kw )
+            self.ssh_client.connect(host, port, **connect_kw)
         except paramiko.ssh_exception.PasswordRequiredException as e:
             if e.message == "Private key file is encrypted":
                 raise SshRpcKeyEncrypted()
