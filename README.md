@@ -22,7 +22,7 @@ from repo:
     cd jsc
     python setup.py build; sudo python setup.py install
     
-NOTE: Windows users must first install the [Microsoft Visual C++ Compiler for Python 2.7](http://www.microsoft.com/en-us/download/details.aspx?id=44266)
+NOTE: Windows users must first install the [Microsoft Visual C++ Compiler for Python 2.7](http://www.microsoft.com/en-us/download/details.aspx?id=44266) and [Python 2.7x for Windows](https://www.python.org/downloads/) (jsc is not compatible with Python 3)
 
 # Run
 See jsc -h for list of arguments.
