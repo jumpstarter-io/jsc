@@ -403,7 +403,7 @@ class SshJsonRpc():
         self.ssh_client.load_system_host_keys()
         self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         connect_kw = {"username": username,
-                      "compress":True,
+                      "compress": True,
                       "look_for_keys": True}
         if password is not None:
             connect_kw["password"] = password
@@ -476,7 +476,8 @@ class SshJsonRpc():
                         recv_buf += new_data
                         if "\n" in recv_buf:
                             lines = recv_buf.split("\n")
-                            # Last line is either not complete or empty string. ("x\nnot compl".split("\n") => ['x', 'not compl'] or "x\n".split("\n") => ['x', ''])
+                            # Last line is either not complete or empty string.
+                            # ("x\nnot compl".split("\n") => ['x', 'not compl'] or "x\n".split("\n") => ['x', ''])
                             # so we put it back in recv_buf for next iteration
                             recv_buf = lines.pop()
                             for line in lines:

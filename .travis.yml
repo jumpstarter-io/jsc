@@ -27,3 +27,4 @@ notifications:
   hipchat:
     rooms:
       secure: l3H9fiRVsIXlKrAgDlQUSpZrLVSG8h4FFro9EfdhcqucAXHSc3K7i7pl1AXmQww/885UlvE5lA9GyqjV92y/vMumn6MPWYlS8BgCum5bPwKsHnu6oe6krzZDrEBNLwcA97M9R32cmayPos+yR780hDp1x7h+UGStAZMyohOGif0=
+  email: false

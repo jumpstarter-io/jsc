@@ -24,7 +24,7 @@ except ImportError:
     from jsc import __version__
 
 
-# Terminate if sshd dies dies
+# Terminate if sshd dies
 signal.signal(signal.SIGHUP, lambda x, y: os._exit(1))
 
 
@@ -60,7 +60,7 @@ def fail(message):
 
 # JSONRPC Defined error_codes
 JSONRPC_PARSE_ERROR = -32700
-JSONRPC_INVALID_REQUEST= -32600
+JSONRPC_INVALID_REQUEST = -32600
 JSONRPC_METHOD_NOT_FOUND = -32601
 JSONRPC_INVALID_PARAMS = -32602
 JSONRPC_INTERNAL_ERROR = -32603
@@ -114,7 +114,7 @@ def subproc(args):
     stdin_fd = sys.stdin.fileno()
     stdin_buffer = ""
     pollfd = select.poll()
-    poll_err_mask =  select.POLLPRI | select.POLLERR | select.POLLHUP
+    poll_err_mask = select.POLLPRI | select.POLLERR | select.POLLHUP
     pollfd.register(stdin_fd, select.POLLIN | poll_err_mask)
     pollfd.register(nb_child, select.POLLIN | poll_err_mask)
     while True:
@@ -130,7 +130,7 @@ def subproc(args):
             if "\n" in stdin_buffer:
                 lines = stdin_buffer.split("\n")
                 # Last line is not complete.
-                inbuf = "\n".join(lines[-1:])
+                stdin_buffer = "\n".join(lines[-1:])
                 messages = lines[0:-1]
                 for msg in messages:
                     msg_obj = json.loads(msg)
@@ -266,7 +266,7 @@ def backup_new():
             with open(size_file, "w+") as f:
                 f.truncate(0)
                 f.write(entry)
-                f.flush
+                f.flush()
             break
     log("Saving recipe")
     if os.path.isdir(recipe_dir):
@@ -951,6 +951,7 @@ def send_msg(msg):
     sys.stdout.write(msg_str)
     sys.stdout.flush()
 
+
 def execute(method, params, rpc_id):
     method_prefix = method[0:3]
     if method_prefix in ["do_", "rc_"] and method in globals().keys():
@@ -1024,7 +1025,7 @@ def test():
         f.writelines([json.dumps({"method": c[0], "params": c[1], "id":34})+"\n" for c in commands])
 
     sys.stdin = open("/tmp/mockinput",'r')
-    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, os.O_NONBLOCK )
+    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
     main(sys.stdin)
 
 
@@ -1032,5 +1033,5 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == 'test':
         test()
     else:
-        fcntl.fcntl(sys.stdin.fileno(),fcntl.F_SETFL , os.O_NONBLOCK )
+        fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
         main(sys.stdin)
