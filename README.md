@@ -2,9 +2,14 @@
 
 Jumpstarter Console - A command line tool for managing your Jumpstarter projects.
 
-This tool is tested to work on OS X and Linux with python 2.7 and python 3.4.
+This tool is tested to work on Windows, OS X, and Linux with python 2.7.
 
 This README does not provide documentation, for thorough documentation please go to [our wiki](https://github.com/jumpstarter-io/help/wiki).
+
+----
+[![Build Status](https://travis-ci.org/jumpstarter-io/jsc.svg?branch=master)](https://travis-ci.org/jumpstarter-io/jsc)
+
+----
 
 # Installation
 From pypi:
