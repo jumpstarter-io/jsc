@@ -1,0 +1,6 @@
+setuptools
+choice
+docopt
+giturlparse.py
+pyparsing
+gevent

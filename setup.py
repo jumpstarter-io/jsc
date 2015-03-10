@@ -3,6 +3,7 @@ import os.path
 import sys
 
 from setuptools import setup, find_packages
+from pip.req import parse_requirements
 
 from jsc import __version__, __description__, __long_description__
 
@@ -12,11 +13,12 @@ def read(fname):
     f = open(path)
     return f.read()
 
-install_requires = []
+install_reqs = parse_requirements("requirements.txt")
+reqs = [str(ir.req) for ir in install_reqs]
+
 pyversion = sys.version_info[:2]
 if pyversion < (2, 7) or (3, 0) <= pyversion <= (3, 1):
-    install_requires.append('argparse')
-
+    reqs.append('argparse')
 
 setup(
     name='jsc',
@@ -32,14 +34,7 @@ setup(
     zip_safe=True,
     include_package_data=True,
 
-    install_requires=[
-        'setuptools',
-        'choice',
-        'docopt',
-        'giturlparse.py',
-        'pyparsing',
-        'gevent'
-        ] + install_requires,
+    install_requires=reqs,
 
     entry_points={
         'console_scripts': [
