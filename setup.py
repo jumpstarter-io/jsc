@@ -1,10 +1,10 @@
 import os
 import os.path
 import sys
-import uuid
 
 from setuptools import setup, find_packages
 from pip.req import parse_requirements
+import pip.download
 
 from jsc import __version__, __description__, __long_description__
 
@@ -14,7 +14,7 @@ def read(fname):
     f = open(path)
     return f.read()
 
-install_reqs = parse_requirements("requirements.txt", session=uuid.uuid1())
+install_reqs = parse_requirements("requirements.txt", session=pip.download.PipSession())
 reqs = [str(ir.req) for ir in install_reqs]
 
 pyversion = sys.version_info[:2]
