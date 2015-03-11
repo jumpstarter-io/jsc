@@ -14,8 +14,17 @@ def read(fname):
     f = open(path)
     return f.read()
 
-install_reqs = parse_requirements("requirements.txt", session=pip.download.PipSession())
-reqs = [str(ir.req) for ir in install_reqs]
+
+reqs = ['setuptools',
+        'remoto',
+        'choice',
+        'docopt',
+        'giturlparse.py',
+        'pyparsing',
+        'gevent',
+        'paramiko'
+        ]
+
 
 pyversion = sys.version_info[:2]
 if pyversion < (2, 7) or (3, 0) <= pyversion <= (3, 1):
