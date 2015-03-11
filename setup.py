@@ -16,7 +16,6 @@ def read(fname):
 
 
 reqs = ['setuptools',
-        'remoto',
         'choice',
         'docopt',
         'giturlparse.py',
