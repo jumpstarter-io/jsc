@@ -102,7 +102,8 @@ def rpc_put_recipe(rpc, src, dst=NEW_RECIPE_SRC, chunk_size=2**16, should_skip=l
             elif os.path.isdir(fn_path_src):
                 rpc.do_mkdir({"path": fn_path_dst})
                 rpc_put_recipe(rpc, fn_path_src, fn_path_dst, chunk_size, should_skip)
-    log.white("could not find recipe dir or file")
+    else:
+        log.white("could not find recipe dir or file")
 
 
 def docopt_cmd(func):

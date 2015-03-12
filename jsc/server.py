@@ -110,7 +110,6 @@ def subproc(args, wd=None):
                 terminate()
             # Check for notifications, crash on new commands.
             new_data = sys.stdin.read()
-            log(new_data)
             stdin_buffer += new_data
             if "\n" in stdin_buffer:
                 lines = stdin_buffer.split("\n")
@@ -508,7 +507,6 @@ def rc_name(state, args):
       name <name>
     """
     state["name"] = args["name"]
-    log("resturning state in rc_name")
     return state
 
 
