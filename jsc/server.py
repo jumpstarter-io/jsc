@@ -27,25 +27,6 @@ except ImportError:
 # Terminate if sshd dies
 signal.signal(signal.SIGHUP, lambda x, y: os._exit(1))
 
-
-class bcolors:
-    HEADER = "\033[95m"
-    OKBLUE = "\033[94m"
-    OKGREEN = "\033[92m"
-    WARNING = "\033[93m"
-    FAIL = "\033[91m"
-    ENDC = "\033[0m"
-    BOLD = "\033[1m"
-
-    def disable(self):
-        self.HEADER = ""
-        self.OKBLUE = ""
-        self.OKGREEN = ""
-        self.WARNING = ""
-        self.FAIL = ""
-        self.ENDC = ""
-
-
 def log(message):
     message = json.dumps({"id": None, "stdout": str(message)})
     sys.stdout.write("{message}\n".format(message=message))
@@ -102,10 +83,12 @@ class AssemblyStateError(Exception):
     pass
 
 
-def subproc(args):
+def subproc(args, wd=None):
     pid, child_fd = pty.fork()
     if pid == 0:
         # Child process
+        if wd is not None:
+            os.chdir(wd)
         binfile = args[0]
         if not os.path.isfile(binfile):
             binfile = find_executable(binfile)
@@ -590,7 +573,7 @@ def rc_run(args):
     state = args["state"]
     log("running command: {}".format(args["args"][0]))
     cmd = shlex.split(args["args"][0])
-    subproc(cmd)
+    subproc(cmd, NEW_RECIPE_SRC)
     return state, None
 
 
