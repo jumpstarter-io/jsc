@@ -5,3 +5,4 @@ giturlparse.py
 pyparsing
 gevent
 paramiko
+colorama

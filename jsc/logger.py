@@ -1,6 +1,7 @@
 import sys
 import threading
-
+from colorama import init
+init()
 
 class bcolors:
     HEADER = '\033[95m'
