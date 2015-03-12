@@ -576,12 +576,12 @@ def print_status(assembly_id, status, env, verbose=False):
     if status['deploy_time'] is None:
         status['deploy_time'] = "<never>"
     log.white(
-        "\n".join(["Jsc v{version} attached to assembly [{assembly_id}] by [{name} {email}]".format(version=__version__, assembly_id=assembly_id, name=name, email=email),
-                   "{dir}: {used} used of {total} ({percent_used} % used)".format(**status['code_usage']),
-                   "    deployed recipe: {recipe_name}".format(**status),
-                   "        at {deploy_time}".format(**status),
-                   "    total backups: {total_backups}".format(**status),
-                   "{dir}: {used} used of {total} ({percent_used} % used)".format(**status['state_usage'])]))
+        u"\n".join([u"Jsc v{version} attached to assembly [{assembly_id}] by [{name} {email}]".format(version=__version__, assembly_id=assembly_id, name=name, email=email),
+                   u"{dir}: {used} used of {total} ({percent_used} % used)".format(**status['code_usage']),
+                   u"    deployed recipe: {recipe_name}".format(**status),
+                   u"        at {deploy_time}".format(**status),
+                   u"    total backups: {total_backups}".format(**status),
+                   u"{dir}: {used} used of {total} ({percent_used} % used)".format(**status['state_usage'])]))
     if verbose:
         package_lines = []
         if "software" in status:
