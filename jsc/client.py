@@ -416,12 +416,16 @@ class SshJsonRpc():
         except paramiko.ssh_exception.PasswordRequiredException as e:
             if e.message == "Private key file is encrypted":
                 raise SshRpcKeyEncrypted()
+            else:
+                print(str(e))
             raise SshRpcError()
         except paramiko.ssh_exception.SSHException as e:
             if e.message == "No authentication methods available":
                 raise SshRpcKeyNoAuthMethod()
             if e.message == "Authentication failed.":
                 raise SshRpcKeyAuthFailed()
+            else:
+                print(str(e))
             raise SshRpcError()
         self.ssh_transport = self.ssh_client.get_transport()
         self.ssh_transport.set_keepalive(30)

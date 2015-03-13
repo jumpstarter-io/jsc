@@ -49,7 +49,5 @@ setup(
         'console_scripts': [
             'jsc = jsc.client:main',
             ]
-        },
-
-    test_suite='jsc.tests.test_all'
+        }
     )

@@ -1,0 +1,13 @@
+{
+    "ident": {
+        "app": null,
+        "container": {
+            "id": "tstngn",
+            "is_assembly": false
+        },
+        "user": {
+            "email": "thorwald@jumpstarter.io",
+            "name": ""
+        }
+    }
+}

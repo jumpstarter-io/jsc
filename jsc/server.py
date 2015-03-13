@@ -76,6 +76,8 @@ DO_SYNC_HTTP_ERROR = -31102
 DO_DEPLOY_NOT_CLEAN = -31000
 DO_DEPLOY_NO_NEWRECIPE = -31200
 
+DO_ASSERT_IS_ASSEMBLY_ERROR = -31400
+
 RC_RECIPE_RUNTIME_ERROR = -31300
 
 CODE_DIR = "/app/code"
@@ -262,7 +264,6 @@ def backup_new():
     for entry in lzop_info.split(" "):
         # the first digit we find is the uncompressed size
         if entry.isdigit():
-            log("Uncompressed size {}".format(lzop_info))
             with open(size_file, "w+") as f:
                 f.truncate(0)
                 f.write(entry)
@@ -671,14 +672,7 @@ def rc_rinsert(state, args):
 
 def do_assert_is_assembly(args):
     if not env_json()["ident"]["container"]["is_assembly"]:
-        return False, "You tried to connect to a non-assembly container"
-    return True, None
-
-
-def do_assert_assembly_is_empty(args):
-    for node in os.listdir(CODE_DIR):
-        if node != "lost+found":
-            return False, "{code_dir} is not empty, cannot continue".format(code_dir=CODE_DIR)
+        return False, {"code": DO_ASSERT_IS_ASSEMBLY_ERROR, "message": "You tried to connect to a non-assembly container"}
     return True, None
 
 

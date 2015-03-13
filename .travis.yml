@@ -2,17 +2,21 @@ language: python
 python:
 - '2.7'
 before_install:
-  openssl aes-256-cbc -K $encrypted_6ee4f911b84d_key -iv $encrypted_6ee4f911b84d_iv -in id_rsa.enc -out ~/.ssh/id_rsa -d
+- openssl aes-256-cbc -K $encrypted_6ee4f911b84d_key -iv $encrypted_6ee4f911b84d_iv -in travis/id_rsa.enc -out ~/.ssh/id_rsa -d
+- sudo apt-get update
 install:
+- sudo apt-get -y install lzop
 - pip install -r requirements.txt
 - pip install -r requirements-dev.txt
 before_script:
-- cp id_rsa.pub ~/.ssh/id_rsa.pub
-- cat id_rsa.pub > ~/.ssh/authorized_keys
+- cp travis/id_rsa.pub ~/.ssh/id_rsa.pub
+- cat travis/id_rsa.pub > ~/.ssh/authorized_keys
 - pyinstaller -F -n server jsc/server.py
 - cp dist/server /tmp/server
+- sudo cp travis/fake_jumpstart.py /bin/jumpstart
+- sudo chmod +x /bin/jumpstart
 script:
-- python setup.py test
+  python -m unittest jsc.tests.test_travis
 before_deploy:
 - fab ul_server
 deploy:
