@@ -59,6 +59,8 @@ DO_DEPLOY_NO_NEWRECIPE = -31200
 
 DO_ASSERT_IS_ASSEMBLY_ERROR = -31400
 
+DO_BACKUP_NEW_IS_CLEAN = -31500
+
 RC_RECIPE_RUNTIME_ERROR = -31300
 
 CODE_DIR = "/app/code"
@@ -225,6 +227,8 @@ def is_code_dir_clean():
 
 
 def backup_new():
+    if is_code_dir_clean():
+        return None, {"code": DO_BACKUP_NEW_IS_CLEAN, "message": "Your code dir [{code_dir}] is clean, there's nothing to backup.".format(code_dir=CODE_DIR)}
     log("Backup starting")
     recipe_dir = os.path.join(JSC_DIR, "recipe")
     new_backup_dir = os.path.join(BACKUPS_DIR, "new-backup")
