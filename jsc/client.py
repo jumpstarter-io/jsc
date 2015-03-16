@@ -12,17 +12,22 @@ import shlex
 import subprocess
 import sys
 import time
-import paramiko
 import getpass
-import threading
-import select
-from gevent.fileobject import FileObject
 import re
 import fnmatch
 import recipe
-import server_updater
-import inspect
 import giturlparse
+from sshrpcutil import *
+
+POSIX = os.name == "posix"
+WINDOWS = os.name == "nt"
+
+if POSIX:
+    from sshjsonrpcposix import SshJsonRpcPosix as SshJsonRpc
+elif WINDOWS:
+    from sshjsonrpcwin import SshJsonRpcWin as SshJsonRpc
+else:
+    raise OSError("unknown OS")
 
 try:
     import logger as log
@@ -38,8 +43,6 @@ except ImportError:
     from jsc import __version__
 
 
-DEFAULT_SSH_HOST = "ssh.jumpstarter.io"
-DEFAULT_SSH_PORT = 22
 
 PYPI_JSON = "https://pypi.python.org/pypi/jsc/json"
 
@@ -372,157 +375,6 @@ class Console(cmd.Cmd):
            In that case we execute the line as Python code.
         """
         log.white("unknown command: [{line}]".format(line=line))
-
-
-class SshRpcCallError(BaseException):
-    pass
-
-
-class SshRpcError(BaseException):
-    pass
-
-
-class SshRpcKeyEncrypted(SshRpcError):
-    pass
-
-
-class SshRpcKeyNoAuthMethod(SshRpcError):
-    pass
-
-
-class SshRpcKeyAuthFailed(SshRpcError):
-    pass
-
-
-class SshJsonRpc():
-    rpc_id = 0
-
-    def __init__(self, username, password=None, key_filename=None, host=DEFAULT_SSH_HOST, port=DEFAULT_SSH_PORT):
-        pkey = os.path.expanduser(key_filename) if key_filename is not None else None
-        self.send_lock = threading.Lock()
-        self.ssh_client = paramiko.SSHClient()
-        self.ssh_client.load_system_host_keys()
-        self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        connect_kw = {"username": username,
-                      "compress": True,
-                      "look_for_keys": True}
-        if password is not None:
-            connect_kw["password"] = password
-            connect_kw["look_for_keys"] = False
-        if key_filename is not None:
-            connect_kw["key_filename"] = key_filename
-            connect_kw["look_for_keys"] = False
-        try:
-            self.ssh_client.connect(host, port, **connect_kw)
-        except paramiko.ssh_exception.PasswordRequiredException as e:
-            if e.message == "Private key file is encrypted":
-                raise SshRpcKeyEncrypted()
-            else:
-                print(str(e))
-            raise SshRpcError()
-        except paramiko.ssh_exception.SSHException as e:
-            if e.message == "No authentication methods available":
-                raise SshRpcKeyNoAuthMethod()
-            if e.message == "Authentication failed.":
-                raise SshRpcKeyAuthFailed()
-            else:
-                print(str(e))
-            raise SshRpcError()
-        self.ssh_transport = self.ssh_client.get_transport()
-        self.ssh_transport.set_keepalive(30)
-        self.ssh_channel = None
-        self._server_update()
-
-    def _server_update(self):
-        channel = self.ssh_transport.open_session()
-        channel.setblocking(0)
-        # TODO: call server binary
-        src = (repr(inspect.getsource(server_updater))+"\n").encode()
-        channel.exec_command("env JSC_CLIENT_VERSION={version} python2 -c \"import sys;exec(eval(sys.stdin.readline()))\"".format(version=__version__))
-        channel.sendall(src)
-        while True:
-            if channel.exit_status_ready():
-                break
-            rl, wl, xl = select.select([channel], [], [])
-            for _ in rl:
-                while channel.recv_stderr_ready():
-                    log.white(channel.recv_stderr(4096).decode())
-                while channel.recv_ready():
-                    log.white(channel.recv(4096).decode())
-
-    def _open_channel(self):
-        self.ssh_channel = self.ssh_transport.open_session()
-        self.ssh_channel.setblocking(0)
-        # TODO: call server binary
-        self.ssh_channel.exec_command('/tmp/server')
-        self.stdout_file = self.ssh_channel.makefile("r", 0)
-
-    def stdin_g(self):
-        stdinFile = FileObject(sys.stdin)
-        for line in stdinFile:
-            self._notify(stdin=line)
-
-    def _sendall(self, rpc):
-        if self.ssh_channel is None or self.ssh_channel.exit_status_ready():
-            self._open_channel()
-        with self.send_lock:
-            self.ssh_channel.sendall("{rpc}\n".format(rpc=rpc))
-
-    def call(self, method, args):
-        rpc_cmd = self.rpc(method, args)
-        self._sendall(rpc_cmd)
-        recv_buf = ""
-        try:
-            while True:
-                rl, _, xl = select.select([self.ssh_channel], [], [])
-                for _ in rl:
-                    if self.ssh_channel.recv_ready():
-                        new_data = self.ssh_channel.recv(4096)
-                        recv_buf += new_data
-                        if "\n" in recv_buf:
-                            lines = recv_buf.split("\n")
-                            # Last line is either not complete or empty string.
-                            # ("x\nnot compl".split("\n") => ['x', 'not compl'] or "x\n".split("\n") => ['x', ''])
-                            # so we put it back in recv_buf for next iteration
-                            recv_buf = lines.pop()
-                            for line in lines:
-                                resp = json.loads(line)
-                                if "stdout" in resp:
-                                    log.white(resp["stdout"].strip(), f=sys.stdout)
-                                elif "stderr" in resp:
-                                    log.white(resp["stderr"], f=sys.stderr)
-                                elif "result" in resp:
-                                    if resp['error'] is not None:
-                                        raise SshRpcCallError(resp['error']['message'])
-                                    return resp["result"]
-                    if self.ssh_channel.recv_stderr_ready():
-                        log.white("{}".format(self.ssh_channel.recv_stderr(4096)))
-                    if self.ssh_channel.exit_status_ready():
-                        raise SshRpcError()
-        except (KeyboardInterrupt, SshRpcError):
-            # stdin_g.kill()
-            self.ssh_channel.shutdown(2)
-            self.ssh_channel = None
-            raise KeyboardInterrupt()
-
-    def _notify(self, **kwargs):
-        if len(kwargs) > 0:
-            notify_dict = {"id": None}
-            notify_dict.update(kwargs)
-            rpc_json = json.dumps(notify_dict)
-            self._sendall(rpc_json)
-
-    def rpc(self, method, params):
-        rpc_json = json.dumps({"id": SshJsonRpc.rpc_id,
-                               "method": method,
-                               "params": params})
-        SshJsonRpc.rpc_id += 1
-        return rpc_json
-
-    def __getattr__(self, item):
-        def wrapper(args=None):
-            return self.call(item, args)
-        return wrapper
 
 
 def touch_dir(directory):

@@ -122,7 +122,8 @@ def subproc(args, wd=None):
                     msg_obj = json.loads(msg)
                     if "id" in msg_obj.keys() and msg_obj["id"] is None:
                         # Might not write all of it.
-                        os.write(child_fd, msg_obj["stdin"])
+                        data = msg_obj[u"stdin"]
+                        os.write(child_fd, str(data) + "\n")
                     else:
                         raise Exception("Should have been a notification")
         if nb_child in pl:
@@ -860,7 +861,7 @@ def do_sync(args):
                 f.write("1")
                 f.flush()
         except urllib2.URLError:
-            return None, {"code": DO_SYNC_HTTP_ERROR, "message": "en error occured communicating with the server"}
+            return None, {"code": DO_SYNC_HTTP_ERROR, "message": "an error occured communicating with the server"}
     return None, None
 
 
