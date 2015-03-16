@@ -566,6 +566,7 @@ def parse_args_main(args):
     parser.add_argument('-p', '--port', action='store', default=DEFAULT_SSH_PORT, help="Port of ssh endpoint. Default: 22")
     parser.add_argument('-P', '--password', action='store_true', default=False, help="Prompt password input")
     parser.add_argument('-i', '--pkey', action='store', default=None, help="SSH Key file path")
+    parser.add_argument('-c', '--non-interactive', action='store', default=None, help="Execute single command")
     parser.add_argument('--no-update', action='store_true', help="Do not check for updates of jsc")
     parser.add_argument('ssh_username', help="SSH username")
     return parser.parse_args(args)
@@ -578,11 +579,11 @@ def print_status(assembly_id, status, env, verbose=False):
         status['deploy_time'] = "<never>"
     log.white(
         u"\n".join([u"Jsc v{version} attached to assembly [{assembly_id}] by [{name} {email}]".format(version=__version__, assembly_id=assembly_id, name=name, email=email),
-                   u"{dir}: {used} used of {total} ({percent_used} % used)".format(**status['code_usage']),
+                   u"{dir}: {used} used of {total} ({percent_used} used)".format(**status['code_usage']),
                    u"    deployed recipe: {recipe_name}".format(**status),
                    u"        at {deploy_time}".format(**status),
                    u"    total backups: {total_backups}".format(**status),
-                   u"{dir}: {used} used of {total} ({percent_used} % used)".format(**status['state_usage'])]))
+                   u"{dir}: {used} used of {total} ({percent_used} used)".format(**status['state_usage'])]))
     if verbose:
         package_lines = []
         if "software" in status:
@@ -655,11 +656,24 @@ def main(args=None):
         lock_content = json.dumps(lock_content_json)
         rpc.do_lock_session(lock_content)
         rpc.do_sync()
-        # Print status on login
-        print_status(parsed.ssh_username, rpc.do_status(), rpc.do_env())
-        # Start console prompt
         console = Console(ssh_username, rpc, ssh_conn_str)
-        console.cmdloop_with_keyboard_interrupt("Welcome to jsc!")
+        if parsed.non_interactive is None:
+            # Print status on login
+            print_status(parsed.ssh_username, rpc.do_status(), rpc.do_env())
+            # Start console prompt
+            console.cmdloop_with_keyboard_interrupt("Welcome to jsc!")
+        else:
+            try:
+                c_cmd = shlex.split(parsed.non_interactive)
+                cmd = c_cmd[0]
+                params = " ".join(c_cmd[1:])
+                try:
+                    f = getattr(console, "do_{cmd}".format(cmd=cmd))
+                    f(params)
+                except AttributeError:
+                    fail("Invalid command [{cmd}]".format(cmd=cmd))
+            except IndexError:
+                fail("No command provided. Usage: jsc -c \"<cmd> ARG...\"")
     except KeyboardInterrupt:
         os._exit(1)
     os._exit(0)
