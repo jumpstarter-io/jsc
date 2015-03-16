@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # coding=utf-8
 
 """
@@ -39,7 +39,10 @@ touch_dir(os.path.dirname(INSTALLED_PACKAGES_FILE))
 def get_installed_packages():
     if os.path.exists(INSTALLED_PACKAGES_FILE):
         with open(INSTALLED_PACKAGES_FILE) as f:
-            return json.loads(f.read())
+            fc = f.read()
+            if fc == "":
+                return {}
+            return json.loads(fc)
     return {}
 
 
@@ -69,4 +72,4 @@ if __name__ == '__main__':
         if args['-S']:
             sync_packages(args['PACKAGES'])
     except docopt.DocoptExit as e:
-        print e.message
+        print(str(e))
