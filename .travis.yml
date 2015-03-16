@@ -8,6 +8,8 @@ install:
 - sudo apt-get -y install lzop
 - pip install -r requirements.txt
 - pip install -r requirements-dev.txt
+# needed especially for fake_jumpstart
+- sudo pip install docopt
 before_script:
 - cp travis/id_rsa.pub ~/.ssh/id_rsa.pub
 - cat travis/id_rsa.pub > ~/.ssh/authorized_keys
