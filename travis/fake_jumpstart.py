@@ -5,7 +5,7 @@
 Fakes a subset of capabilities of jumpstart/pacman for use in tests only
 
 Usage:
-    jumpstart -S [-y] PACKAGES...
+    jumpstart -S [-y] [--noconfirm] PACKAGES...
 
 Arguments:
     PACKAGES  packages to install
@@ -58,7 +58,7 @@ def sync_packages(packages):
             return
 
     packages_w_ver = [AVAILABLE_PACKAGES[p] for p in packages]
-    print("Packages ({num_pkgs}) {packages}".format(num_pkgs=len(packages), packages=" ".join(packages_w_ver)))
+    print("Packages ({num_pkgs}) {packages}".format(num_pkgs=len(packages), packages="  ".join(packages_w_ver)))
     for package in packages:
         update_package_list(package)
 

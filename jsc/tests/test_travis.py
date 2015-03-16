@@ -7,9 +7,12 @@ import platform
 import time
 import subprocess
 import pwd
+import pyparsing
 
 import jsc.client
 import jsc.server
+import jsc.recipe
+import jsc.rparser as rp
 
 
 CODE_DIR = jsc.server.CODE_DIR
@@ -44,6 +47,10 @@ def add_garbage():
     touch_dir(os.path.join(CODE_DIR, "garb"))
     touch_dir(os.path.join(CODE_DIR, ".pacman", "db"))
     touch_file(os.path.join(CODE_DIR, ".pacman", "garb"))
+
+
+def cmp_lists(l1, l2):
+    return not set(l1) ^ set(l2)
 
 
 class TestClient(unittest.TestCase):
@@ -212,3 +219,153 @@ class TestClient(unittest.TestCase):
     def test_do_file_append(self):
         self._rpc.do_file_append({"path": "/app/code/new_file", "content": "content1"})
         self._rpc.do_file_append({"path": "/app/code/new_file", "content": "content2"})
+
+    # recipe functions
+
+    def test_rc_name(self):
+        state = jsc.recipe.run(self._rpc, "name test", False)
+        assert "name" in state
+        assert state["name"] == "test"
+
+    def test_rc_package(self):
+        state = jsc.recipe.run(self._rpc, "package nodejs", False)
+        assert "software_list" in state
+        assert "package" in state['software_list']
+        assert "nodejs" in state['software_list']['package']
+        state = jsc.recipe.run(self._rpc, "package nginx php5", False)
+        assert "nginx" in state['software_list']['package']
+        assert "php5" in state['software_list']['package']
+
+    def test_rc_install(self):
+        # single file
+        f_src = "{code_dir}/jsc_test_install_src".format(code_dir=CODE_DIR)
+        f_dst = "{state_dir}/jsc_test_install_dst".format(state_dir=STATE_DIR)
+        touch_file(f_src)
+        jsc.recipe.run(self._rpc, "install {src} {dst}".format(src=f_src, dst=f_dst), False)
+        assert os.path.isfile(f_dst)
+        # directory with files
+        d_src = "{code_dir}/jsc_test_install_src_dir".format(code_dir=CODE_DIR)
+        d_dst = "{state_dir}/jsc_test_install_dst_dir".format(state_dir=STATE_DIR)
+        touch_dir(d_src)
+        for x in range(2):
+            touch_file(os.path.join(d_src, str(x)))
+            touch_dir(os.path.join(d_src, str(x) + "_dir"))
+        jsc.recipe.run(self._rpc, "install {src} {dst}".format(src=d_src, dst=d_dst), False)
+        assert os.path.isdir(d_dst)
+
+    def test_rc_append(self):
+        original_content = "original content"
+        f_append = "{code_dir}/f_append".format(code_dir=CODE_DIR)
+        jsc.recipe.run(self._rpc, "append {f} '{c}'".format(f=f_append, c=original_content), False)
+        with open(f_append) as f:
+            assert f.read() == original_content
+        added_content = "\nadded_content"
+        jsc.recipe.run(self._rpc, "append {f} '{c}'".format(f=f_append, c=added_content), False)
+        with open(f_append) as f:
+            assert f.read() == original_content + added_content
+
+    def test_rc_put(self):
+        original_content = "original content"
+        f_put = "{code_dir}/f_put".format(code_dir=CODE_DIR)
+        jsc.recipe.run(self._rpc, "put {f} '{c}'".format(f=f_put, c=original_content), False)
+        with open(f_put) as f:
+            assert f.read() == original_content
+        new_content = "new_content"
+        jsc.recipe.run(self._rpc, "put {f} '{c}'".format(f=f_put, c=new_content), False)
+        with open(f_put) as f:
+            assert f.read() == new_content
+
+    def test_rc_replace(self):
+        original_content = "original content original"
+        replace_part = "original"
+        f_replace = "{code_dir}/f_replace".format(code_dir=CODE_DIR)
+        jsc.recipe.run(self._rpc, "put {f} '{c}'".format(f=f_replace, c=original_content), False)
+        new_content = "new"
+        jsc.recipe.run(self._rpc, "replace {f} '{r}' '{c}'".format(f=f_replace, r=replace_part, c=new_content), False)
+        with open(f_replace) as f:
+            assert f.read() == original_content.replace(replace_part, new_content)
+
+    def test_rc_insert(self):
+        original_content = "original content original"
+        needle = "original"
+        f_replace = "{code_dir}/f_replace".format(code_dir=CODE_DIR)
+        jsc.recipe.run(self._rpc, "put {f} '{c}'".format(f=f_replace, c=original_content), False)
+        new_content = "new"
+        jsc.recipe.run(self._rpc, "insert {f} '{r}' '{c}'".format(f=f_replace, r=needle, c=new_content), False)
+        with open(f_replace) as f:
+            assert f.read() == original_content.replace(needle, needle+new_content, 1)
+
+    def test_rc_rinsert(self):
+        original_content = "original content original"
+        needle = "original"
+        f_replace = "{code_dir}/f_replace".format(code_dir=CODE_DIR)
+        jsc.recipe.run(self._rpc, "put {f} '{c}'".format(f=f_replace, c=original_content), False)
+        new_content = "new"
+        jsc.recipe.run(self._rpc, "rinsert {f} '{r}' '{c}'".format(f=f_replace, r=needle, c=new_content), False)
+        with open(f_replace) as f:
+            assert f.read() == original_content[::-1].replace(needle[::-1], (new_content+needle)[::-1], 1)[::-1]
+
+
+
+class TestRecipeParser(unittest.TestCase):
+    def setUp(self):
+        self.recipe = {
+            'name recipename': ['name', 'recipename'],
+            'name "recipe name"': ['name', 'recipe name'],
+            'run ls -lah ./dir/path': ['run', 'ls -lah ./dir/path'],
+            'run echo "echo"': ['run', 'echo "echo"'],
+            'put /file "content with spaces in quotes"': ['put', '/file', 'content with spaces in quotes'],
+            'put /file content': ['put', '/file', 'content'],
+            'put /file unquoted_trailing_lonely_"': ['put', '/file', 'unquoted_trailing_lonely_"'],
+            'put /file "escaped\\""': ['put', '/file', 'escaped"'],
+            'replace /full/file/path "escaped\\"" "replace string"': ['replace', '/full/file/path', 'escaped"', 'replace string'],
+            'replace relative_file "escaped\\"" "replace string"': ['replace', 'relative_file', 'escaped"', 'replace string'],
+            'replace relative_file/path "escaped\\"" "replace string"': ['replace', 'relative_file/path', 'escaped"', 'replace string'],
+            'replace relative_file/path "escaped\\"" "replace \nstring with newline"': ['replace', 'relative_file/path', 'escaped"', 'replace \nstring with newline'],
+            'gd --depth=asdf --pkey=pkey --branch=name git@github.com/jumpstarter-io/jsc path/tocheck\ out/ya/\\nyah':
+                ['gd', '--depth=asdf', '--pkey=pkey', '--branch=name', 'git@github.com/jumpstarter-io/jsc', 'path/tocheck out/ya/\nyah'],
+            'gd git@github.com/jumpstarter-io/jsc path':
+                ['gd', 'git@github.com/jumpstarter-io/jsc', 'path'],
+            'gd --depth=asdf git@github.com/jumpstarter-io/jsc /path/tocheck\ out/ya/\\nyah':
+                ['gd', '--depth=asdf', 'git@github.com/jumpstarter-io/jsc', '/path/tocheck out/ya/\nyah'],
+            'install source/dir_\\nwith_escnewline dst # with comment end': ['install', 'source/dir_\nwith_escnewline', 'dst'],
+            'install src dst': ['install', 'src', 'dst'],
+        }
+
+        self.should_fail = [
+            'install src',
+            'run',
+            'append "sdfasdf\nasdfsdf"',
+            'nonexisting "foo" foobar',
+            'gd -depth path'
+
+        ]
+
+    def test_sl(self):
+        for cmd in self.recipe.keys():
+            result = rp.parse(cmd)
+            if len(result) == 0:
+                # comments does not return results
+                return
+            assert len(result) == 1
+            assert cmp_lists(result.pop(), self.recipe[cmd])
+
+    def test_ml(self):
+        commands = []
+        results = []
+        for cmd in self.recipe.keys():
+            commands.append(cmd)
+            results.append(self.recipe[cmd])
+        results.reverse()
+        parse_results = rp.parse("\n".join(commands))
+        for result in parse_results:
+            assert cmp_lists(result, results.pop())
+
+    def test_ml_failing(self):
+        rec = "\n".join(self.should_fail)
+        try:
+            print("parsed_ml_failing: {}".format(rp.parse(rec)))
+            # is this is reach, it parsed something...
+            assert False
+        except pyparsing.ParseException:
+            pass
