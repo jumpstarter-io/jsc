@@ -8,6 +8,7 @@ import sys
 import inspect
 import server_updater
 import fcntl
+import termios
 from sshrpcutil import *
 import sshjsonrpc
 
@@ -26,6 +27,16 @@ class SshJsonRpcPosix(sshjsonrpc.SshJsonRpc):
         fcntl.fcntl(stdin_fd, fcntl.F_SETFL, os.O_NONBLOCK)
         tty = os.fdopen(stdin_fd, "r", 0)
         try:
+            # Some code stolen from getpass.py
+            # getpass Authors: Piers Lauder (original)
+            #                  Guido van Rossum (Windows support and cleanup)
+            #                  Gregory P. Smith (tty support & GetPassWarning)b
+            old = termios.tcgetattr(stdin_fd)     # a copy to save
+            new = old[:]
+            new[3] &= ~termios.ECHO  # 3 == 'lflags'
+            new[3] &= ~termios.ICANON  # 3 == 'lflags'
+            tcsetattr_flags = termios.TCSADRAIN
+            termios.tcsetattr(stdin_fd, tcsetattr_flags, new)
             while True:
                 rl, _, xl = select.select([self.ssh_channel, stdin_fd], [], [])
                 if self.ssh_channel in rl:
@@ -41,7 +52,8 @@ class SshJsonRpcPosix(sshjsonrpc.SshJsonRpc):
                             for line in lines:
                                 resp = json.loads(line)
                                 if "stdout" in resp:
-                                    log.white(resp["stdout"].strip(), f=sys.stdout)
+                                    sys.stdout.write(resp["stdout"])
+                                    sys.stdout.flush()
                                 elif "stderr" in resp:
                                     log.white(resp["stderr"], f=sys.stderr)
                                 elif "result" in resp:
@@ -54,17 +66,12 @@ class SshJsonRpcPosix(sshjsonrpc.SshJsonRpc):
                         raise SshRpcError()
                 if stdin_fd in rl:
                     new_stdin_data = tty.read()
-                    stdin_buf += new_stdin_data
-                    if "\n" in stdin_buf:
-                        lines = stdin_buf.split("\n")
-                        # Last line is either not complete or empty string.
-                        # ("x\nnot compl".split("\n") => ['x', 'not compl'] or "x\n".split("\n") => ['x', ''])
-                        # so we put it back in recv_buf for next iteration
-                        stdin_buf = lines.pop()
-                        for line in lines:
-                            self._sendall(self.stdin(line))
+                    self._sendall(self.stdin(new_stdin_data))
         except (KeyboardInterrupt, SshRpcError):
             # stdin_g.kill()
             self.ssh_channel.shutdown(2)
             self.ssh_channel = None
             raise KeyboardInterrupt()
+        finally:
+            termios.tcsetattr(stdin_fd, tcsetattr_flags, old)
+            tty.flush()  # issue7208

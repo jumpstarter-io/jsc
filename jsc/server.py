@@ -17,6 +17,7 @@ import httplib
 from docopt import docopt, DocoptExit
 import shlex
 from distutils.spawn import find_executable
+import termios
 
 try:
     from __init__ import __version__
@@ -28,7 +29,7 @@ except ImportError:
 signal.signal(signal.SIGHUP, lambda x, y: os._exit(1))
 
 def log(message):
-    message = json.dumps({"id": None, "stdout": str(message)})
+    message = json.dumps({"id": None, "stdout": str(message)+ "\n" })
     sys.stdout.write("{message}\n".format(message=message))
     sys.stdout.flush()
 
@@ -97,6 +98,10 @@ def subproc(args, wd=None):
         os.execv(binfile, args)
     # set up a nonblocking
     nb_child = os.dup(child_fd)
+    old = termios.tcgetattr(nb_child)
+    new = old[:]
+    new[3] &= ~termios.ICANON
+    termios.tcsetattr(nb_child, termios.TCSADRAIN, new)
     fcntl.fcntl(nb_child, fcntl.F_SETFL, os.O_NONBLOCK)
     stdin_fd = sys.stdin.fileno()
     stdin_buffer = ""
@@ -123,7 +128,7 @@ def subproc(args, wd=None):
                     if "id" in msg_obj.keys() and msg_obj["id"] is None:
                         # Might not write all of it.
                         data = msg_obj[u"stdin"]
-                        os.write(child_fd, str(data) + "\n")
+                        os.write(child_fd, data)
                     else:
                         raise Exception("Should have been a notification")
         if nb_child in pl:
