@@ -26,6 +26,8 @@ NOTE: Windows users must first install the [Microsoft Visual C++ Compiler for Py
 
 NOTE: Users of Ubuntu (and possibly other Debian based distros) will need to install the python-dev package via apt-get
 
+NOTE: Users of RPM based distros will need to install the python-devel package via yum.
+
 # Run
 See jsc -h for list of arguments.
 We recommend that you add your ssh public key on Jumpstarter.
