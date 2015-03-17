@@ -24,6 +24,8 @@ from repo:
     
 NOTE: Windows users must first install the [Microsoft Visual C++ Compiler for Python 2.7](http://www.microsoft.com/en-us/download/details.aspx?id=44266) and [Python 2.7x for Windows](https://www.python.org/downloads/) (jsc is not compatible with Python 3)
 
+NOTE: Users of Ubuntu (and possibly other Debian based distros) will need to install the python-dev package via apt-get
+
 # Run
 See jsc -h for list of arguments.
 We recommend that you add your ssh public key on Jumpstarter.
@@ -33,6 +35,13 @@ We recommend that you add your ssh public key on Jumpstarter.
 To show available commands:
 
     prompt> help
+    
+# Non-interactive execution of commands
+In 3.0 we introduced non-interactive mode so that developers could use jsc in scripts. It supports exactly the same commands as jsc does in normal mode. Just supply -c and then your command. Here's som examples
+
+    $ jsc $ssh_username -c "deploy MyRecipe"
+    $ jsc $ssh_username -c 'deploy "My recipe"'
+    $ jsc $ssh_username -c "backup new"
 
 # Philosophy
 We strongly believe that all system setups should be automated. This reduces
