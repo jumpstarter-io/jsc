@@ -663,17 +663,28 @@ def main(args=None):
             # Start console prompt
             console.cmdloop_with_keyboard_interrupt("Welcome to jsc!")
         else:
-            try:
-                c_cmd = shlex.split(parsed.non_interactive)
-                cmd = c_cmd[0]
-                params = " ".join(c_cmd[1:])
+            def parse_noninteractive_cmds(line):
+                cmd_line = line.replace(";", " ; ")
+                cmd_arr = shlex.split(cmd_line)
+                cmds = []
+                while True:
+                    if not len(cmd_arr):
+                        break
+                    cmd = cmd_arr[0]
+                    cmd_arr = cmd_arr[1:]
+                    params = []
+                    while len(cmd_arr) and cmd_arr[0] != ";":
+                        params.append(cmd_arr[0])
+                        cmd_arr = cmd_arr[1:]
+                    cmd_arr = cmd_arr[1:]
+                    cmds.append({"cmd": cmd, "params": " ".join(params)})
+                return cmds
+            for cmd in parse_noninteractive_cmds(parsed.non_interactive):
                 try:
-                    f = getattr(console, "do_{cmd}".format(cmd=cmd))
-                    f(params)
+                    f = getattr(console, "do_{cmd}".format(cmd=cmd["cmd"]))
+                    f(cmd["params"])
                 except AttributeError:
-                    fail("Invalid command [{cmd}]".format(cmd=cmd))
-            except IndexError:
-                fail("No command provided. Usage: jsc -c \"<cmd> ARG...\"")
+                    fail("Invalid command [{cmd}]".format(cmd="{} {}".format(cmd["cmd"], cmd["params"])))
     except KeyboardInterrupt:
         os._exit(1)
     os._exit(0)
