@@ -1,10 +1,12 @@
 import select
 import json
 import sys
+from multiprocessing import Process
 import threading
 import socket
 from sshrpcutil import *
 import sshjsonrpc
+import msvcrt
 
 import time
 
@@ -14,27 +16,18 @@ except ImportError:
     from jsc import logger as log
 
 
-class SshJsonRpcWin(sshjsonrpc.SshJsonRpc):
-    def _input_reader(self, port):
-        try:
-            fwd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            fwd.connect(("127.0.0.1", port))
-            while True:
-                time.sleep(1)
-                fwd.send("l")
-                time.sleep(0.01)
-                fwd.send("s")
-                time.sleep(0.01)
-                fwd.send(" ")
-                time.sleep(0.01)
-                fwd.send("-")
-                time.sleep(0.01)
-                fwd.send("l")
-                time.sleep(0.01)
-                fwd.send("\n")
-        except:
-            pass
+def input_reader(port):
+    try:
+        fwd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        fwd.connect(("127.0.0.1", port))
+        while True:
+            key = msvcrt.getch()
+            fwd.send(key)
+    except BaseException as e:
+        print(str(e))
 
+
+class SshJsonRpcWin(sshjsonrpc.SshJsonRpc):
     def call(self, method, args):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         for port in range(14000, 62000):
@@ -44,7 +37,8 @@ class SshJsonRpcWin(sshjsonrpc.SshJsonRpc):
             except socket.error:
                 continue
         server_socket.listen(5)
-        input_thread = threading.Thread(target=self._input_reader, args=[port]).start()
+        input_thread = Process(target=input_reader, args=(port,))
+        input_thread.start()
         (input_socket, _) = server_socket.accept()
         input_socket.setblocking(0)
         rpc_cmd = self.rpc(method, args)
@@ -73,6 +67,7 @@ class SshJsonRpcWin(sshjsonrpc.SshJsonRpc):
                                 elif "result" in resp:
                                     if resp['error'] is not None:
                                         raise SshRpcCallError(resp['error']['message'])
+                                    #print("ending",method)
                                     return resp["result"]
                     if self.ssh_channel.recv_stderr_ready():
                         log.white("{}".format(self.ssh_channel.recv_stderr(4096)))
@@ -87,5 +82,7 @@ class SshJsonRpcWin(sshjsonrpc.SshJsonRpc):
             self.ssh_channel = None
             raise KeyboardInterrupt()
         finally:
+            input_thread.terminate()
+            input_thread.join()
             del input_socket
             del server_socket
