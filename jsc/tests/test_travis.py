@@ -81,8 +81,7 @@ class FakeEndpointConn():
 
     def stop(self):
         if self.fake_sync_endpoint is not None:
-            self.fake_sync_endpoint.send_signal(signal.SIGTERM)
-            self.fake_sync_endpoint.kill()
+            self.fake_sync_endpoint.terminate()
             self.fake_sync_endpoint = None
 
     def send(self, data):
