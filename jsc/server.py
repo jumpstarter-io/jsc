@@ -5,7 +5,6 @@ import os
 import fcntl
 import re
 import subprocess
-import shutil
 import datetime
 import signal
 import pty
