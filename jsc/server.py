@@ -491,6 +491,25 @@ def git_checkout_tag(src, tag):
     return subprocess.check_call("cd %s; git checkout %s -q"%(src, tag), shell=True)
 
 
+def sync_software_list(url, session_key, software_list):
+    try:
+        request = urllib2.Request(url, data=software_list.encode())
+        request.add_header("Authorization", "Session-Key {session_key}".format(session_key=session_key))
+        request.add_header("Content-Type", "application/json".format(session_key=session_key))
+        response = urllib2.urlopen(request)
+        if response.getcode() != httplib.OK:
+            return None, {"code": DO_SYNC_SERVER_FAILED, "message": "software list not accepted"}
+        is_software_list_synced_file = os.path.join(JSC_DIR, "recipe", "is-software-list-synced")
+        if os.path.isfile(is_software_list_synced_file):
+            with open(is_software_list_synced_file, "w") as f:
+                f.truncate(0)
+                f.write("1")
+                f.flush()
+        return None, None
+    except urllib2.URLError:
+        return None, {"code": DO_SYNC_HTTP_ERROR, "message": "an error occured communicating with the server"}
+
+
 ################################################################################
 ############################### Recipe functions ###############################
 ################################################################################
@@ -844,30 +863,23 @@ def do_run(args):
 
 
 def do_sync(args):
-    recipe_path = os.path.join(JSC_DIR, "recipe")
-    if not os.path.isdir(recipe_path):
-        return None, None
-    is_synced_file_path = os.path.join(recipe_path, "is-software-list-synced")
-    with open(is_synced_file_path) as f:
-        if int(f.read().strip()) != 0:
-            return None, None
     env = env_json()
     if "software_list_sync_url" in env["ident"]["container"]:
-        with open("{recipe_path}/software-list".format(recipe_path=RECIPE_PATH)) as f:
-            software_list_content = f.read()
-        try:
-            request = urllib2.Request(env["ident"]["container"]["software_list_sync_url"], data=software_list_content.encode())
-            request.add_header("Authorization", "Session-Key {session_key}".format(session_key=env["ident"]["container"]["session_key"]))
-            request.add_header("Content-Type", "application/json".format(session_key=env["ident"]["container"]["session_key"]))
-            response = urllib2.urlopen(request)
-            if response.getcode() != httplib.OK:
-                return None, {"code": DO_SYNC_SERVER_FAILED, "message": "software list not accepted"}
-            with open(is_synced_file_path, "w") as f:
-                f.truncate(0)
-                f.write("1")
-                f.flush()
-        except urllib2.URLError:
-            return None, {"code": DO_SYNC_HTTP_ERROR, "message": "an error occured communicating with the server"}
+        url = env["ident"]["container"]["software_list_sync_url"]
+        session_key = env["ident"]["container"]["session_key"]
+        recipe_path = os.path.join(JSC_DIR, "recipe")
+        if not os.path.isdir(recipe_path):
+            software_list = json.dumps({"gd": {}, "package": {}})
+            return sync_software_list(url, session_key, software_list)
+        else:
+            is_synced_file_path = os.path.join(recipe_path, "is-software-list-synced")
+            with open(is_synced_file_path) as f:
+                fc = f.read().strip()
+                if int(fc) != 0:
+                    return None, None
+            with open("{recipe_path}/software-list".format(recipe_path=RECIPE_PATH)) as f:
+                software_list = f.read().strip()
+                return sync_software_list(url, session_key, software_list)
     return None, None
 
 
