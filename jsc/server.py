@@ -28,6 +28,7 @@ except ImportError:
 # Terminate if sshd dies
 signal.signal(signal.SIGHUP, lambda x, y: os._exit(1))
 
+
 def log(message):
     message = json.dumps({"id": None, "stdout": str(message)+ "\n" })
     sys.stdout.write("{message}\n".format(message=message))
@@ -708,7 +709,7 @@ def do_clone(args):
 
 def do_deploy_reset_check(args):
     if not is_code_dir_clean():
-        return None, {"code": DO_DEPLOY_NOT_CLEAN, "message": "code not clean"}
+        return None, {"code": DO_DEPLOY_NOT_CLEAN, "message": "Deploying a recipe requires your code base to be empty. Use the command clean and try again."}
     # From spec:
     # 1. Deleting .jsc/recipe and initializing .jsc/new-recipe. This folder
     #    should be deleted in init if it is found as it signifies a
