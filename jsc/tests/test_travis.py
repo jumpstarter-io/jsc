@@ -9,6 +9,8 @@ import subprocess
 import pwd
 import pyparsing
 
+import fake_sync_endpoint
+
 import jsc.client
 import jsc.server
 import jsc.recipe
@@ -54,7 +56,36 @@ def cmp_lists(l1, l2):
     return not set(l1) ^ set(l2)
 
 
+class FakeEndpointConn():
+    def __init__(self):
+        self.fake_sync_endpoint = None
+
+    def __del__(self):
+        self.stop()
+
+    def start(self):
+        if self.fake_sync_endpoint is None:
+            fake_sync_endpoint_bin = os.path.join(os.path.dirname(__file__), "fake_sync_endpoint.py")
+            self.fake_sync_endpoint = subprocess.Popen("python2 {fake_sync_endpoint_bin}".format(fake_sync_endpoint_bin=fake_sync_endpoint_bin), shell=True, stdout=subprocess.PIPE)
+            time.sleep(4)
+            while True:
+                try:
+                    self.send("")
+                    return
+                except:
+                    pass
+
+    def stop(self):
+        if self.fake_sync_endpoint is not None:
+            self.fake_sync_endpoint.kill()
+
+    def send(self, data):
+        subprocess.check_call("curl --data '{data}' http://localhost:8000".format(data=data), shell=True)
+
+
 class TestClient(unittest.TestCase):
+    fake_ep = FakeEndpointConn()
+
     def setUp(self):
         cuser = pwd.getpwuid(os.getuid()).pw_name
         subprocess.check_call("sudo mkdir -m 777 -p {}".format(CODE_DIR), shell=True)
@@ -62,6 +93,7 @@ class TestClient(unittest.TestCase):
         subprocess.check_call("sudo chown -R {cuser}:{cuser} /app".format(cuser=cuser), shell=True)
         self._rpc = jsc.client.SshJsonRpc(cuser, key_filename=os.path.expanduser("~/.ssh/id_rsa"), host="localhost")
         self._rpc.do_init()
+
 
     def tearDown(self):
         subprocess.check_call("sudo rm -rf {}".format("/app"), shell=True)
@@ -82,6 +114,7 @@ class TestClient(unittest.TestCase):
                 if node not in ("lost+found", ".jsc", ".pacman", ".config"):
                     return False
             return True
+        self.add_env("env_assembly.json")
 
         add_garbage()
         self._rpc.do_clean({
@@ -124,6 +157,7 @@ class TestClient(unittest.TestCase):
     def test_do_backup(self):
         print(os.listdir(CODE_DIR))
         add_garbage()
+        self.add_env("env_assembly.json")
         assert isinstance(self._rpc.do_backup({
             "new": False,
             "du": False,
