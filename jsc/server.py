@@ -250,9 +250,10 @@ def backup_new():
     log("Compressing")
     new_backup_file = os.path.join(new_backup_dir, "data.tar.lzo")
     pacman_dir = os.path.join(CODE_DIR, ".pacman")
+    jsc_recipe_dir = os.path.join(JSC_DIR, "recipe")
     if not os.path.isdir(pacman_dir):
         pacman_dir = ""
-    subprocess.check_call("tar --use-compress-program=lzop --exclude='{code_dir}/.pacman/cache' --exclude='{code_dir}/.pacman/db/sync' --exclude='lost+found' -cf {new_backup_file} {code_dir}/* {pacman_dir}".format(new_backup_file=new_backup_file, code_dir=CODE_DIR, pacman_dir=pacman_dir), shell=True)
+    subprocess.check_call("tar --use-compress-program=lzop --exclude='{code_dir}/.pacman/cache' --exclude='{code_dir}/.pacman/db/sync' --exclude='lost+found' -cf {new_backup_file} {code_dir}/* {pacman_dir} {jsc_recipe_dir}".format(new_backup_file=new_backup_file, code_dir=CODE_DIR, pacman_dir=pacman_dir, jsc_recipe_dir=jsc_recipe_dir), shell=True)
     lzop_info = subprocess.check_output("lzop --info {new_backup_file}".format(new_backup_file=new_backup_file).split(" ")).decode("utf-8")
     for entry in lzop_info.split(" "):
         # the first digit we find is the uncompressed size
@@ -372,6 +373,7 @@ def clean(datasets):
                     subprocess.check_call("rm -rf {node_path}".format(node_path=node_path), shell=True)
             recipe_reset()
             do_init({})
+            do_sync({})
             log("{dataset} was cleaned".format(dataset=dataset))
 
 
@@ -852,6 +854,13 @@ def do_revert(args):
                 reverted = True
                 break
     if reverted:
+        is_software_list_synced_file = os.path.join(JSC_DIR, "recipe", "is-software-list-synced")
+        if os.path.isfile(is_software_list_synced_file):
+            with open(is_software_list_synced_file, "w") as f:
+                f.truncate(0)
+                f.write("0")
+                f.flush()
+        do_sync({})
         return None, None
     return None, {"code": DO_REVERT_INVALID_ID, "message": "backup id does not exist"}
 
