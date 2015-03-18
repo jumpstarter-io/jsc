@@ -508,7 +508,8 @@ def sync_software_list(url, session_key, software_list):
                 f.write("1")
                 f.flush()
         return None, None
-    except urllib2.URLError:
+    except urllib2.URLError as e:
+        log(str(e))
         return None, {"code": DO_SYNC_HTTP_ERROR, "message": "an error occured communicating with the server"}
 
 

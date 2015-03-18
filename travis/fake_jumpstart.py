@@ -51,7 +51,7 @@ def update_package_list(package):
     packages[package] = AVAILABLE_PACKAGES[package]
     with open(INSTALLED_PACKAGES_FILE, "wb+") as f:
         f.truncate(0)
-        f.write(json.dumps(packages))
+        f.write(json.dumps(packages).encode())
 
 
 def sync_packages(packages):

@@ -8,6 +8,7 @@ import time
 import subprocess
 import pwd
 import pyparsing
+import signal
 
 import fake_sync_endpoint
 
@@ -66,21 +67,26 @@ class FakeEndpointConn():
     def start(self):
         if self.fake_sync_endpoint is None:
             fake_sync_endpoint_bin = os.path.join(os.path.dirname(__file__), "fake_sync_endpoint.py")
-            self.fake_sync_endpoint = subprocess.Popen("python2 {fake_sync_endpoint_bin}".format(fake_sync_endpoint_bin=fake_sync_endpoint_bin), shell=True, stdout=subprocess.PIPE)
-            time.sleep(4)
+            self.fake_sync_endpoint = subprocess.Popen("{fake_sync_endpoint_bin}".format(fake_sync_endpoint_bin=fake_sync_endpoint_bin), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             while True:
                 try:
-                    self.send("")
-                    return
-                except:
+                    ret_code = self.fake_sync_endpoint.poll()
+                    if ret_code is None:
+                        self.send("")
+                        break
+                    else:
+                        raise RuntimeError("starting fake endpoint failed")
+                except subprocess.CalledProcessError:
                     pass
 
     def stop(self):
         if self.fake_sync_endpoint is not None:
+            self.fake_sync_endpoint.send_signal(signal.SIGTERM)
             self.fake_sync_endpoint.kill()
+            self.fake_sync_endpoint = None
 
     def send(self, data):
-        subprocess.check_call("curl --data '{data}' http://localhost:8000".format(data=data), shell=True)
+        subprocess.check_output("curl -s --data '{data}' http://localhost:8125 > /dev/null".format(data=data), shell=True)
 
 
 class TestClient(unittest.TestCase):
@@ -93,10 +99,12 @@ class TestClient(unittest.TestCase):
         subprocess.check_call("sudo chown -R {cuser}:{cuser} /app".format(cuser=cuser), shell=True)
         self._rpc = jsc.client.SshJsonRpc(cuser, key_filename=os.path.expanduser("~/.ssh/id_rsa"), host="localhost")
         self._rpc.do_init()
-
+        self.fake_ep.start()
 
     def tearDown(self):
         subprocess.check_call("sudo rm -rf {}".format("/app"), shell=True)
+        self._rpc = None
+        self.fake_ep.stop()
 
     def do_clean_all(self):
         self._rpc.do_clean({
@@ -142,6 +150,10 @@ class TestClient(unittest.TestCase):
             "--code": False,
             "--state": True
         })
+
+    def test_do_sync(self):
+        self.add_env("env_assembly.json")
+        self._rpc.do_sync()
 
     def test_do_assert_is_assembly(self):
         self.add_env("env_app.json")

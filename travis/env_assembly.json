@@ -5,7 +5,7 @@
             "id": "tstngn",
             "is_assembly": true,
             "session_key": "0f33bfcc8c1fae8da08548567400c42bb157b96d183b7e8c2e5821d938765da6",
-            "software_list_sync_url": "http://localhost:8000"
+            "software_list_sync_url": "http://localhost:8125"
         },
         "user": {
             "email": "thorwald@jumpstarter.io",
