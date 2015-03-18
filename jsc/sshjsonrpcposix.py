@@ -1,12 +1,8 @@
-import threading
 import select
 import os
-import sys
 import json
 import os.path
 import sys
-import inspect
-import server_updater
 import fcntl
 import termios
 from sshrpcutil import *
@@ -16,6 +12,7 @@ try:
     import logger as log
 except ImportError:
     from jsc import logger as log
+
 
 class SshJsonRpcPosix(sshjsonrpc.SshJsonRpc):
     def call(self, method, args):

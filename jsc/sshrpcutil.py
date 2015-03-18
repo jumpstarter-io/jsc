@@ -1,6 +1,7 @@
 DEFAULT_SSH_HOST = "ssh.jumpstarter.io"
 DEFAULT_SSH_PORT = 22
 
+
 class SshRpcCallError(BaseException):
     pass
 

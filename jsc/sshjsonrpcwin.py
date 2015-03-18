@@ -9,6 +9,7 @@ try:
 except ImportError:
     from jsc import logger as log
 
+
 class SshJsonRpcWin(sshjsonrpc.SshJsonRpc):
     def call(self, method, args):
         rpc_cmd = self.rpc(method, args)
