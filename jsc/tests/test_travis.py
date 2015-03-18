@@ -47,6 +47,7 @@ def add_garbage():
     touch_dir(os.path.join(CODE_DIR, "garb"))
     touch_dir(os.path.join(CODE_DIR, ".pacman", "db"))
     touch_file(os.path.join(CODE_DIR, ".pacman", "garb"))
+    touch_dir(os.path.join(CODE_DIR, ".jsc", "recipe"))
 
 
 def cmp_lists(l1, l2):
