@@ -4,6 +4,7 @@ import SocketServer
 import signal
 import sys
 
+
 class ServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def do_POST(self):

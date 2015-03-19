@@ -67,7 +67,7 @@ class FakeEndpointConn():
     def start(self):
         if self.fake_sync_endpoint is None:
             fake_sync_endpoint_bin = os.path.join(os.path.dirname(__file__), "fake_sync_endpoint.py")
-            self.fake_sync_endpoint = subprocess.Popen("{fake_sync_endpoint_bin}".format(fake_sync_endpoint_bin=fake_sync_endpoint_bin), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.fake_sync_endpoint = subprocess.Popen("{fake_sync_endpoint_bin}".format(fake_sync_endpoint_bin=fake_sync_endpoint_bin), shell=True)
             while True:
                 try:
                     ret_code = self.fake_sync_endpoint.poll()
