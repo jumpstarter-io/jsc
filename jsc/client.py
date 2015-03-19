@@ -288,8 +288,6 @@ class Console(cmd.Cmd):
             cmd_open = "xdg-open"
         elif sys.platform.startswith("darwin"):
             cmd_open = "open"
-        elif sys.platform.startswith("win32"):
-            cmd_open = "start"
         else:
             log.white("Cannot start ssh shell since your platform [{platform}] is not supported.".format(platform=platform))
             return
