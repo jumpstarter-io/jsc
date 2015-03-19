@@ -20,7 +20,6 @@ reqs = ['setuptools',
         'docopt',
         'giturlparse.py',
         'pyparsing',
-        'gevent',
         'paramiko',
         'colorama'
         ]
