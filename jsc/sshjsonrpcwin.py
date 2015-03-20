@@ -1,28 +1,25 @@
 import select
 import json
 import sys
-from multiprocessing import Process
-import threading
+from multiprocessing import Process, Event
 import socket
 from sshrpcutil import *
 import sshjsonrpc
 import msvcrt
-
-import time
-
 try:
     import logger as log
 except ImportError:
     from jsc import logger as log
 
 
-def input_reader(port):
+def input_reader(port, event):
     try:
         fwd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         fwd.connect(("127.0.0.1", port))
-        while True:
-            key = msvcrt.getch()
-            fwd.send(key)
+        while not event.is_set():
+            if msvcrt.kbhit():
+                key = msvcrt.getch()
+                fwd.send(key)
     except BaseException as e:
         print(str(e))
 
@@ -37,7 +34,8 @@ class SshJsonRpcWin(sshjsonrpc.SshJsonRpc):
             except socket.error:
                 continue
         server_socket.listen(5)
-        input_thread = Process(target=input_reader, args=(port,))
+        ev = Event()
+        input_thread = Process(target=input_reader, args=(port, ev))
         input_thread.start()
         (input_socket, _) = server_socket.accept()
         input_socket.setblocking(0)
@@ -77,11 +75,11 @@ class SshJsonRpcWin(sshjsonrpc.SshJsonRpc):
                     new_stdin_data = input_socket.recv(1024)
                     self._sendall(self.stdin(new_stdin_data))
         except (KeyboardInterrupt, SshRpcError):
-            # stdin_g.kill()
             self.ssh_channel.shutdown(2)
             self.ssh_channel = None
             raise KeyboardInterrupt()
         finally:
+            ev.set()
             input_thread.terminate()
             input_thread.join()
             del input_socket
