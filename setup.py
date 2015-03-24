@@ -29,6 +29,11 @@ pyversion = sys.version_info[:2]
 if pyversion < (2, 7) or (3, 0) <= pyversion <= (3, 1):
     reqs.append('argparse')
 
+if sys.platform.startswith("darwin"):
+    reqs.append('readline')
+elif sys.platform.startswith('win32'):
+    reqs.append('pyreadline')
+
 setup(
     name='jsc',
     version=__version__,

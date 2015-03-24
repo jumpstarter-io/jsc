@@ -17,6 +17,7 @@ import re
 import fnmatch
 import recipe
 import giturlparse
+import glob
 from sshrpcutil import *
 
 POSIX = os.name == "posix"
@@ -218,7 +219,7 @@ class Console(cmd.Cmd):
         Usage:
           deploy [--dev] <path>
 
-        Deployes a user writter recipe.
+        Deploys a user writter recipe.
 
         Arguments:
           <path>        A path to the local recipe or a git repo which contains a recipe.
@@ -240,6 +241,30 @@ class Console(cmd.Cmd):
             self._rpc.do_deploy_finalize(args)
         except SshRpcCallError as e:
             log.white(str(e))
+
+    def complete_deploy(self, text, line, begidx, endidx):
+        try:
+            argv = shlex.split(line)
+            parsed = docopt(self.do_deploy.__doc__, argv[1:])
+            path = parsed['<path>']
+            if os.path.isdir(path):
+                dir_path = parsed['<path>']
+            elif os.path.isdir(os.path.dirname(path)):
+                dir_path = os.path.dirname(path)
+            cwd = os.getcwd()
+            try:
+                os.chdir(dir_path)
+            except:
+                pass
+            ret = glob.glob(os.path.basename(path)+'*')+[]
+            os.chdir(cwd)
+            return ret
+        except Exception as e:
+            # The DocoptExit is thrown when the args do not match.
+            # We print a message to the user and the usage block.
+            log.white('Invalid Command!')
+            log.white(e)
+            return []
 
     @docopt_cmd
     def do_env(self, args):
@@ -355,7 +380,8 @@ class Console(cmd.Cmd):
             it has been interpreted. If you want to modifdy the input line
             before execution (for example, variable substitution) do it here.
         """
-        self._hist += [line.strip()]
+        if line not in ("EOF", "exit", "quit"):
+            self._hist += [line.strip()]
         return line
 
     def postcmd(self, stop, line):
