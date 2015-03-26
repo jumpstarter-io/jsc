@@ -245,20 +245,27 @@ class Console(cmd.Cmd):
     def complete_deploy(self, text, line, begidx, endidx):
         try:
             argv = shlex.split(line)
-            parsed = docopt(self.do_deploy.__doc__, argv[1:])
-            path = parsed['<path>']
-            if os.path.isdir(path):
-                dir_path = parsed['<path>']
-            elif os.path.isdir(os.path.dirname(path)):
-                dir_path = os.path.dirname(path)
             cwd = os.getcwd()
-            try:
-                os.chdir(dir_path)
-            except:
-                pass
-            ret = glob.glob(os.path.basename(path)+'*')+[]
-            os.chdir(cwd)
-            return ret
+            if len(argv) == 1 or (len(argv) == 2 and argv[1] == '--dev'):
+                ret = ['.', '..'] + os.listdir(cwd)
+            else:
+                parsed = docopt(self.do_deploy.__doc__, argv[1:])
+                path = parsed['<path>']
+                if os.path.isdir(path):
+                    os.chdir(path)
+                elif os.path.isdir(os.path.dirname(path)):
+                    os.chdir(os.path.dirname(path))
+                ret = []
+                if path == '.':
+                    ret.append('.')
+                    ret.append('..')
+                elif path == '..':
+                    ret.append('..')
+                resolved = glob.glob(os.path.basename(path)+'*')
+                if len(resolved) != 1 or resolved[0] != path:
+                    ret += resolved
+                os.chdir(cwd)
+            return map(lambda d: d + "/" if os.path.isdir(d) else d, ret)
         except Exception as e:
             # The DocoptExit is thrown when the args do not match.
             # We print a message to the user and the usage block.
