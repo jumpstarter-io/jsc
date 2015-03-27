@@ -21,7 +21,9 @@ class SshJsonRpcPosix(sshjsonrpc.SshJsonRpc):
         recv_buf = ""
         stdin_fd = os.dup(sys.stdin.fileno())
         stdin_buf = ''
-        fcntl.fcntl(stdin_fd, fcntl.F_SETFL, os.O_NONBLOCK)
+        flags = fcntl.fcntl(stdin_fd, fcntl.F_GETFL, 0)
+        flags |= os.O_NONBLOCK
+        fcntl.fcntl(stdin_fd, fcntl.F_SETFL, flags)
         tty = os.fdopen(stdin_fd, "r", 0)
         try:
             # Some code stolen from getpass.py
@@ -29,7 +31,7 @@ class SshJsonRpcPosix(sshjsonrpc.SshJsonRpc):
             #                  Guido van Rossum (Windows support and cleanup)
             #                  Gregory P. Smith (tty support & GetPassWarning)b
             old = termios.tcgetattr(stdin_fd)     # a copy to save
-            new = old[:]
+            new = termios.tcgetattr(stdin_fd)
             new[3] &= ~termios.ECHO  # 3 == 'lflags'
             new[3] &= ~termios.ICANON  # 3 == 'lflags'
             tcsetattr_flags = termios.TCSADRAIN
@@ -72,3 +74,5 @@ class SshJsonRpcPosix(sshjsonrpc.SshJsonRpc):
         finally:
             termios.tcsetattr(stdin_fd, tcsetattr_flags, old)
             tty.flush()  # issue7208
+            flags &= ~os.O_NONBLOCK
+            fcntl.fcntl(stdin_fd, fcntl.F_SETFL, flags)
