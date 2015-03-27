@@ -247,22 +247,24 @@ class Console(cmd.Cmd):
             argv = shlex.split(line)
             cwd = os.getcwd()
             if len(argv) == 1 or (len(argv) == 2 and argv[1] == '--dev'):
-                ret = ['.', '..'] + os.listdir(cwd)
+                ret = os.listdir(cwd)
             else:
                 parsed = docopt(self.do_deploy.__doc__, argv[1:])
                 path = parsed['<path>']
-                if os.path.isdir(path):
-                    os.chdir(path)
-                elif os.path.isdir(os.path.dirname(path)):
-                    os.chdir(os.path.dirname(path))
                 ret = []
                 if path == '.':
                     ret.append('.')
                     ret.append('..')
                 elif path == '..':
                     ret.append('..')
+                elif os.path.isdir(path):
+                    os.chdir(path)
+                elif os.path.isdir(os.path.dirname(path)):
+                    os.chdir(os.path.dirname(path))
                 resolved = glob.glob(os.path.basename(path)+'*')
-                if len(resolved) != 1 or resolved[0] != path:
+                if len(resolved) == 1 and resolved[0] == path:
+                    pass
+                else:
                     ret += resolved
                 os.chdir(cwd)
             return map(lambda d: d + "/" if os.path.isdir(d) else d, ret)
