@@ -20,7 +20,6 @@ class SshJsonRpcPosix(sshjsonrpc.SshJsonRpc):
         self._sendall(rpc_cmd)
         recv_buf = ""
         stdin_fd = os.dup(sys.stdin.fileno())
-        stdin_buf = ''
         flags = fcntl.fcntl(stdin_fd, fcntl.F_GETFL, 0)
         flags |= os.O_NONBLOCK
         fcntl.fcntl(stdin_fd, fcntl.F_SETFL, flags)
@@ -51,8 +50,7 @@ class SshJsonRpcPosix(sshjsonrpc.SshJsonRpc):
                             for line in lines:
                                 resp = json.loads(line)
                                 if "stdout" in resp:
-                                    sys.stdout.write(resp["stdout"])
-                                    sys.stdout.flush()
+                                    log.white(resp["stdout"], f=sys.stdout)
                                 elif "stderr" in resp:
                                     log.white(resp["stderr"], f=sys.stderr)
                                 elif "result" in resp:

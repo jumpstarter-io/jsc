@@ -1,3 +1,4 @@
+import errno
 import sys
 import threading
 from colorama import init
@@ -28,7 +29,13 @@ print_lock = threading.Lock()
 
 def print_locked(message, bcolor, f, print_fmt="%s%s%s\n"):
     with print_lock:
-        f.write(print_fmt % (bcolor, message, bcolors.ENDC))
+        while True:
+            try:
+                f.write(print_fmt % (bcolor, message, bcolors.ENDC))
+                break
+            except IOError as e:
+                if e.errno != errno.EAGAIN:
+                    raise e
         f.flush()
 
 
