@@ -3,7 +3,6 @@ import threading
 import json
 import os
 import os.path
-import sys
 import inspect
 import server_updater
 import select
@@ -56,28 +55,36 @@ class SshJsonRpc():
         self._server_update()
 
     def _server_update(self):
-        channel = self.ssh_transport.open_session()
-        channel.setblocking(0)
-        # TODO: call server binary
-        src = (repr(inspect.getsource(server_updater))+"\n").encode()
-        channel.exec_command("env JSC_CLIENT_VERSION={version} python2 -c \"import sys;exec(eval(sys.stdin.readline()))\"".format(version=__version__))
-        channel.sendall(src)
-        while True:
-            if channel.exit_status_ready():
-                break
-            rl, wl, xl = select.select([channel], [], [])
-            for _ in rl:
-                while channel.recv_stderr_ready():
-                    log.white(channel.recv_stderr(4096).decode())
-                while channel.recv_ready():
-                    log.white(channel.recv(4096).decode())
+        try:
+            channel = self.ssh_transport.open_session()
+            channel.setblocking(0)
+            # TODO: call server binary
+            src = (repr(inspect.getsource(server_updater))+"\n").encode()
+            channel.exec_command("env JSC_CLIENT_VERSION={version} python2 -c \"import sys;exec(eval(sys.stdin.readline()))\"".format(version=__version__))
+            channel.sendall(src)
+            while True:
+                if channel.exit_status_ready():
+                    break
+                rl, wl, xl = select.select([channel], [], [])
+                for _ in rl:
+                    while channel.recv_stderr_ready():
+                        log.white(channel.recv_stderr(4096).decode())
+                    while channel.recv_ready():
+                        log.white(channel.recv(4096).decode())
+        except paramiko.ssh_exception.SSHException:
+            log.white("Connection lost, make sure the assembly is running, then reconnect.")
+            os._exit(1)
 
     def _open_channel(self):
-        self.ssh_channel = self.ssh_transport.open_session()
-        self.ssh_channel.setblocking(0)
-        # TODO: call server binary
-        self.ssh_channel.exec_command('/tmp/server')
-        self.stdout_file = self.ssh_channel.makefile("r", 0)
+        try:
+            self.ssh_channel = self.ssh_transport.open_session()
+            self.ssh_channel.setblocking(0)
+            self.ssh_channel.exec_command('/tmp/server')
+            self.stdout_file = self.ssh_channel.makefile("r", 0)
+        except paramiko.ssh_exception.SSHException:
+            log.white("Connection lost, make sure the assembly is running, then reconnect.")
+            os._exit(1)
+
 
     def _sendall(self, rpc):
         if self.ssh_channel is None or self.ssh_channel.exit_status_ready():
