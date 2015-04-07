@@ -82,6 +82,7 @@ class FakeEndpointConn():
     def stop(self):
         if self.fake_sync_endpoint is not None:
             self.fake_sync_endpoint.terminate()
+            self.fake_sync_endpoint.wait()
             del self.fake_sync_endpoint
             self.fake_sync_endpoint = None
 
