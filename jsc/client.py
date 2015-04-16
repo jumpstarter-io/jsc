@@ -1,3 +1,22 @@
+"""
+Jumpstarter Console
+
+Usage:
+  jsc [options] SSH_USERNAME
+
+Arguments:
+  SSH_USERNAME              Your SSH username
+
+Options:
+  -h --help                 show this help message and exit
+  -V --version              print version and quit
+  -H --host=HOST            Hostname of ssh endpoint. [Default: ssh.jumpstarter.io]
+  -p --port=N               Port of ssh endpoint. [Default: 22]
+  -P --password=PASSWORD    SSH password
+  -i --pkey=PKEY            SSH key file path
+  -c --non-interactive=CMD  Execute single command
+  --no-update               Do not check for updates of jsc
+"""
 import argparse
 import base64
 import choice
@@ -444,19 +463,6 @@ def update_self():
             log.white("Could not check for updates, try '# pip install -U jsc'")
 
 
-def parse_args_main(args):
-    parser = argparse.ArgumentParser(description='Jumpstarter Console')
-    parser.add_argument('-V', '--version', action='version', version='{version}'.format(version=__version__))
-    parser.add_argument('-H', '--host', action='store', default=DEFAULT_SSH_HOST, help="Hostname of ssh endpoint. Default: ssh.jumpstarter.io")
-    parser.add_argument('-p', '--port', action='store', default=DEFAULT_SSH_PORT, help="Port of ssh endpoint. Default: 22")
-    parser.add_argument('-P', '--password', action='store_true', default=False, help="Prompt password input")
-    parser.add_argument('-i', '--pkey', action='store', default=None, help="SSH Key file path")
-    parser.add_argument('-c', '--non-interactive', action='store', default=None, help="Execute single command")
-    parser.add_argument('--no-update', action='store_true', help="Do not check for updates of jsc")
-    parser.add_argument('ssh_username', help="SSH username")
-    return parser.parse_args(args)
-
-
 def print_status(assembly_id, status, env, verbose=False):
     email = env["ident"]["user"]["email"]
     name = env["ident"]["user"]["name"]
@@ -495,22 +501,25 @@ def print_status(assembly_id, status, env, verbose=False):
 
 def main(args=None):
     try:
-        parsed = parse_args_main(args)
-        if not parsed.no_update:
+        arguments = docopt(__doc__, version=__version__)
+        print arguments
+        if not arguments['--no-update']:
             update_self()
         # WARNING: port does is not supported by remoto atm
-        ssh_username = parsed.ssh_username
-        ssh_conn_str = "{id}@{host}".format(id=ssh_username, host=parsed.host, port=parsed.port)
+        ssh_username = arguments['SSH_USERNAME']
+        host = arguments['--host']
+        port = arguments['--port']
+        ssh_conn_str = "{id}@{host}".format(id=ssh_username, host=host, port=port)
         # Init
-        if parsed.password:
+        if arguments['--password']:
             password = getpass.getpass()
         else:
             password = None
-        pkey = parsed.pkey
+        pkey = arguments['--pkey']
         rpc = None
         while rpc is None:
             try:
-                rpc = SshJsonRpc(ssh_username, password, parsed.pkey, host=parsed.host, port=int(parsed.port))
+                rpc = SshJsonRpc(ssh_username, password, pkey, host=host, port=int(port))
                 password = None
             except SshRpcKeyEncrypted:
                 if pkey is not None:
@@ -542,9 +551,9 @@ def main(args=None):
         rpc.do_lock_session(lock_content)
         rpc.do_sync()
         console = Console(ssh_username, rpc, ssh_conn_str)
-        if parsed.non_interactive is None:
+        if arguments['--non-interactive'] is None:
             # Print status on login
-            print_status(parsed.ssh_username, rpc.do_status(), rpc.do_env())
+            print_status(ssh_username, rpc.do_status(), rpc.do_env())
             # Start console prompt
             console.cmdloop_with_keyboard_interrupt("Welcome to jsc!")
         else:
@@ -564,7 +573,7 @@ def main(args=None):
                     cmd_arr = cmd_arr[1:]
                     cmds.append({"cmd": cmd, "params": " ".join(params)})
                 return cmds
-            for cmd in parse_noninteractive_cmds(parsed.non_interactive):
+            for cmd in parse_noninteractive_cmds(arguments['--non-interactive']):
                 try:
                     f = getattr(console, "do_{cmd}".format(cmd=cmd["cmd"]))
                     f(cmd["params"])
