@@ -3,9 +3,12 @@ Jumpstarter Console
 
 Usage:
   jsc [options] SSH_USERNAME
+  jsc [--no-update] api PATH ACCOUNT_ID
 
 Arguments:
   SSH_USERNAME              Your SSH username
+  PATH                      API Endpoint path
+  ACCOUNT_ID                Your account id
 
 Options:
   -h --help                 show this help message and exit
@@ -33,6 +36,7 @@ import sys
 import time
 import getpass
 import re
+import requests
 import fnmatch
 import recipe
 import giturlparse
@@ -69,6 +73,8 @@ PYPI_JSON = "https://pypi.python.org/pypi/jsc/json"
 MINUTE_S = 60
 MIN_TIME_BETWEEN_UPDATES = MINUTE_S * 10
 
+API_ENDPOINT = "https://jumpstarter.io/api/v0"
+
 CODE_DIR = "/app/code"
 STATE_DIR = "/app/state"
 JSC_DIR = CODE_DIR + "/.jsc"
@@ -76,6 +82,9 @@ NEW_RECIPE_PATH = JSC_DIR + "/new-recipe"
 RECIPE_PATH = JSC_DIR + "/recipe"
 NEW_RECIPE_SRC = NEW_RECIPE_PATH + "/src"
 NEW_RECIPE_SCRIPT = NEW_RECIPE_SRC + "/Jumpstart-Recipe"
+
+LOCAL_JSC_PATH = os.path.expanduser("~/.jsc")
+API_KEY_FILE = os.path.join(LOCAL_JSC_PATH, "api_key")
 
 
 def get_filter(jscignore):
@@ -499,14 +508,23 @@ def print_status(assembly_id, status, env, verbose=False):
         log.white("\n".join(all_lines))
 
 
+def do_api(path, account_id):
+    with open(API_KEY_FILE) as f:
+        key = f.read().strip()
+    resp = requests.get(API_ENDPOINT + path, auth=(account_id, key))
+    log.white(resp)
+
+
 def main(args=None):
     try:
         arguments = docopt(__doc__, version=__version__)
-        print arguments
         if not arguments['--no-update']:
             update_self()
         # WARNING: port does is not supported by remoto atm
         ssh_username = arguments['SSH_USERNAME']
+        if arguments['api']:
+            do_api(arguments['PATH'], arguments['ACCOUNT_ID'])
+            return
         host = arguments['--host']
         port = arguments['--port']
         ssh_conn_str = "{id}@{host}".format(id=ssh_username, host=host, port=port)

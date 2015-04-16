@@ -5,3 +5,4 @@ giturlparse.py
 pyparsing
 paramiko
 colorama
+requests

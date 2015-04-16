@@ -21,7 +21,8 @@ reqs = ['setuptools',
         'giturlparse.py',
         'pyparsing',
         'paramiko',
-        'colorama'
+        'colorama',
+        'requests'
         ]
 
 
