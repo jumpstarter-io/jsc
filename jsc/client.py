@@ -219,7 +219,7 @@ class Console(cmd.Cmd):
         Usage:
           deploy [--dev] <path>
 
-        Deploys a user writter recipe.
+        Deploys a recipe.
 
         Arguments:
           <path>        A path to the local recipe or a git repo which contains a recipe.
