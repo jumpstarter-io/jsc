@@ -509,10 +509,24 @@ def print_status(assembly_id, status, env, verbose=False):
 
 
 def do_api(path, account_id):
-    with open(API_KEY_FILE) as f:
-        key = f.read().strip()
-    resp = requests.get(API_ENDPOINT + path, auth=(account_id, key))
-    log.white(resp)
+    if os.path.isfile(API_KEY_FILE):
+        with open(API_KEY_FILE) as f:
+            key = f.read().strip()
+        r = requests.get(API_ENDPOINT + path, auth=(account_id, key))
+        if r.status_code == 200:
+            log.ok("Success!")
+            return 0
+        else:
+            if r.status_code == 401:
+                log.err("Invalid account_id and/or api_key given")
+            elif r.status_code == 403:
+                log.err("You have no permission to use the that resource")
+            elif r.status_code == 404:
+                log.err("The endpoint could not be found")
+            return 1
+    else:
+        log.err("Could not find API key file [{key_file}]".format(key_file=API_KEY_FILE))
+        return 1
 
 
 def main(args=None):
@@ -523,8 +537,7 @@ def main(args=None):
         # WARNING: port does is not supported by remoto atm
         ssh_username = arguments['SSH_USERNAME']
         if arguments['api']:
-            do_api(arguments['PATH'], arguments['ACCOUNT_ID'])
-            return
+            sys.exit(do_api(arguments['PATH'], arguments['ACCOUNT_ID']))
         host = arguments['--host']
         port = arguments['--port']
         ssh_conn_str = "{id}@{host}".format(id=ssh_username, host=host, port=port)
