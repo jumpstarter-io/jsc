@@ -15,7 +15,7 @@ Options:
   -V --version              print version and quit
   -H --host=HOST            Hostname of ssh endpoint. [Default: ssh.jumpstarter.io]
   -p --port=N               Port of ssh endpoint. [Default: 22]
-  -P --password=PASSWORD    SSH password
+  -P --password             Prompt for password/passphrase
   -i --pkey=PKEY            SSH key file path
   -c --non-interactive=CMD  Execute single command
   --no-update               Do not check for updates of jsc
