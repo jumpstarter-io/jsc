@@ -2,7 +2,7 @@
 Jumpstarter Console
 
 Usage:
-  jsc [options] SSH_USERNAME
+  jsc [--no-update] [options] SSH_USERNAME
   jsc [--no-update] api PATH ACCOUNT_ID
 
 Arguments:
