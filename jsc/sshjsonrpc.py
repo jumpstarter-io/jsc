@@ -6,6 +6,7 @@ import os.path
 import inspect
 import server_updater
 import select
+import socket
 from sshrpcutil import *
 
 try:
@@ -49,6 +50,9 @@ class SshJsonRpc():
             if e.message == "Authentication failed.":
                 raise SshRpcKeyAuthFailed()
             raise SshRpcError()
+        except socket.error as e:
+            log.err("Unable to establish connection, please try again later ({})".format(e))
+            os._exit(1)
         self.ssh_transport = self.ssh_client.get_transport()
         self.ssh_transport.set_keepalive(30)
         self.ssh_channel = None
