@@ -566,7 +566,7 @@ def main(args=None):
             is_assembly = rpc.do_assert_is_assembly()
             if not is_assembly:
                 fail("Container is not an assembly")
-        except SshJsonRpc as e:
+        except SshRpcError as e:
             fail(e)
         res = rpc.do_check_init()
         if res['needs_init']:

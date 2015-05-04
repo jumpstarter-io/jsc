@@ -49,7 +49,7 @@ class SshJsonRpc():
                 raise SshRpcKeyNoAuthMethod()
             if e.message == "Authentication failed.":
                 raise SshRpcKeyAuthFailed()
-            raise SshRpcError()
+            raise SshRpcError(e.message)
         except socket.error as e:
             log.err("Unable to establish connection, please try again later ({})".format(e))
             os._exit(1)
