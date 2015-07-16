@@ -21,9 +21,6 @@ import jsc.rparser as rp
 CODE_DIR = jsc.server.CODE_DIR
 STATE_DIR = jsc.server.STATE_DIR
 JSC_DIR = jsc.server.JSC_DIR
-BACKUPS_DIR = jsc.server.BACKUPS_DIR
-BACKUPS_SEQ_FILE_PATH = jsc.server.BACKUPS_SEQ_FILE_PATH
-NEW_BACKUP_DIR = jsc.server.NEW_BACKUP_DIR
 LOCK_FILE = jsc.server.LOCK_FILE
 RECIPE_PATH = jsc.server.RECIPE_PATH
 NEW_RECIPE_PATH = jsc.server.NEW_RECIPE_PATH
@@ -152,10 +149,6 @@ class TestClient(unittest.TestCase):
             "--state": True
         })
 
-    def test_do_sync(self):
-        self.add_env("env_assembly.json")
-        self._rpc.do_sync()
-
     def test_do_assert_is_assembly(self):
         self.add_env("env_app.json")
         try:
@@ -166,54 +159,6 @@ class TestClient(unittest.TestCase):
             pass
         self.add_env("env_assembly.json")
         assert self._rpc.do_assert_is_assembly()
-
-    def test_do_backup(self):
-        print(os.listdir(CODE_DIR))
-        add_garbage()
-        self.add_env("env_assembly.json")
-        assert isinstance(self._rpc.do_backup({
-            "new": False,
-            "du": False,
-            "ls": False,
-            "rm": False
-        }), list)
-        assert isinstance(self._rpc.do_backup({
-            "new": False,
-            "du": True,
-            "ls": False,
-            "rm": False
-        }), list)
-        assert self._rpc.do_backup({
-            "new": True,
-            "du": False,
-            "ls": False,
-            "rm": False
-        }) is None
-        assert isinstance(self._rpc.do_backup({
-            "new": False,
-            "du": False,
-            "ls": False,
-            "rm": False
-        }), list)
-        assert isinstance(self._rpc.do_backup({
-            "new": False,
-            "du": True,
-            "ls": False,
-            "rm": False
-        }), list)
-        for b_id in self._rpc.do_backup({
-            "new": False,
-            "du": False,
-            "ls": True,
-            "rm": False
-        }):
-            self._rpc.do_backup({
-                "new": False,
-                "du": False,
-                "ls": False,
-                "rm": True,
-                "id": b_id
-            })
 
     def test_do_deploy_reset_check(self):
         assert self._rpc.do_deploy_reset_check() is None

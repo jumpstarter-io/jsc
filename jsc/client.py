@@ -194,28 +194,6 @@ class Console(cmd.Cmd):
                 print("")
 
     @docopt_cmd
-    def do_backup(self, args):
-        """
-        Usage:
-          backup [ls]
-          backup new
-          backup du
-          backup rm <id>
-
-        Managing backups.
-
-        Arguments:
-          ls        List backups.
-          new       Create a new backup.
-          du        Like ls, but also shows size and disk space usage.
-          rm        Removes backup with supplied id.
-        """
-        resp = self._rpc.do_backup(args)
-        if resp is not None:
-            for line in resp:
-                log.white(line)
-
-    @docopt_cmd
     def do_clean(self, args):
         """
         Usage:
@@ -229,17 +207,6 @@ class Console(cmd.Cmd):
           --all             Cleans both /app/code and /app/state.
         """
         self._rpc.do_clean(args)
-
-    @docopt_cmd
-    def do_clone(self, args):
-        """
-        Usage:
-          clone <id> [--pkey=<pkey>] [--code|--state]
-
-          NOT IMPLEMENTED
-        """
-        # Low priotiry. Do later.
-        pass
 
     @docopt_cmd
     def do_deploy(self, args):
@@ -315,20 +282,6 @@ class Console(cmd.Cmd):
         log.white(json.dumps(env_json, sort_keys=True, indent=4, separators=(',', ': ')))
 
     @docopt_cmd
-    def do_revert(self, args):
-        """
-        Usage:
-          revert <id>
-
-        Reverts a backup. This will destroy any changes you've made since backup.
-
-        Arguments:
-          <id>        Id of the backup to restore.
-        """
-        self._rpc.do_revert(args)
-        log.white("revert of backup done!")
-
-    @docopt_cmd
     def do_run(self, args):
         """
         Usage:
@@ -359,24 +312,13 @@ class Console(cmd.Cmd):
             pass
 
     @docopt_cmd
-    def do_sync(self, args):
-        """
-        Usage:
-          sync
-
-        Syncs software list so it becomes visable in the developer panel.
-        """
-        self._rpc.do_sync()
-        log.white("sync done!")
-
-    @docopt_cmd
     def do_status(self, args):
         """
         Usage:
           status [-v]
 
         Shows status about the container.
-        Like disk usage, recipe deployed, backups and more.
+        Like disk usage, recipe deployed and more.
 
         Options:
           -v         Be more verbose and show what jumpstart-packages are installed and
@@ -482,30 +424,7 @@ def print_status(assembly_id, status, env, verbose=False):
                    u"{dir}: {used} used of {total} ({percent_used} used)".format(**status['code_usage']),
                    u"    deployed recipe: {recipe_name}".format(**status),
                    u"        at {deploy_time}".format(**status),
-                   u"    total backups: {total_backups}".format(**status),
                    u"{dir}: {used} used of {total} ({percent_used} used)".format(**status['state_usage'])]))
-    if verbose:
-        package_lines = []
-        if "software" in status:
-            if "package" in status["software"]:
-                for pkg in status['software']["package"]:
-                    pkg_kw = {"pkg": pkg,
-                              "ver": status['software']["package"][pkg]["version"]}
-                    package_lines.append("\t{pkg}: [{ver}]".format(**pkg_kw))
-        gd_lines = []
-        if "software" in status:
-            if "gd" in status["software"]:
-                for path in status['software']["gd"]:
-                    gd_kw = {"ref": status['software']["gd"][path]["ref"],
-                             "src": status['software']["gd"][path]["repo"],
-                             "commit": status['software']["gd"][path]["commit"][0:8],
-                             "path": path}
-                    gd_lines.append("\t{path}: [{src}] [{ref}] [{commit}]".format(**gd_kw))
-        all_lines = ["Deploiyed packages:"]
-        all_lines += package_lines
-        all_lines += ["Git deployed software:"]
-        all_lines += gd_lines
-        log.white("\n".join(all_lines))
 
 
 def do_api(path, account_id):
@@ -580,7 +499,6 @@ def main(args=None):
         }
         lock_content = json.dumps(lock_content_json)
         rpc.do_lock_session(lock_content)
-        rpc.do_sync()
         console = Console(ssh_username, rpc, ssh_conn_str)
         if arguments['--non-interactive'] is None:
             # Print status on login

@@ -48,28 +48,16 @@ JSONRPC_INVALID_PARAMS = -32602
 JSONRPC_INTERNAL_ERROR = -32603
 JSONRPC_INTERNAL_ERROR = -32604
 
-DO_REVERT_NOT_CLEAN = -31050
-DO_REVERT_INVALID_ID = -31051
-
-DO_SYNC_NO_RECIPE_INSTALLED = -31100
-DO_SYNC_SERVER_FAILED = -31101
-DO_SYNC_HTTP_ERROR = -31102
-
 DO_DEPLOY_NOT_CLEAN = -31000
 DO_DEPLOY_NO_NEWRECIPE = -31200
 
 DO_ASSERT_IS_ASSEMBLY_ERROR = -31400
-
-DO_BACKUP_NEW_IS_CLEAN = -31500
 
 RC_RECIPE_RUNTIME_ERROR = -31300
 
 CODE_DIR = "/app/code"
 STATE_DIR = "/app/state"
 JSC_DIR = os.path.join(CODE_DIR, ".jsc")
-BACKUPS_DIR = os.path.join(JSC_DIR, "backups")
-BACKUPS_SEQ_FILE_PATH = os.path.join(BACKUPS_DIR, "seq")
-NEW_BACKUP_DIR = os.path.join(BACKUPS_DIR, "new-backup")
 LOCK_FILE = os.path.join(JSC_DIR, "lock")
 RECIPE_PATH = os.path.join(JSC_DIR, "recipe")
 NEW_RECIPE_PATH = os.path.join(JSC_DIR, "new-recipe")
@@ -232,125 +220,12 @@ def is_code_dir_clean():
     return True
 
 
-def backup_new():
-    if is_code_dir_clean():
-        return None, {"code": DO_BACKUP_NEW_IS_CLEAN, "message": "Your code dir [{code_dir}] is clean, there's nothing to backup.".format(code_dir=CODE_DIR)}
-    log("Backup starting")
-    recipe_dir = os.path.join(JSC_DIR, "recipe")
-    new_backup_dir = os.path.join(BACKUPS_DIR, "new-backup")
-    size_file = os.path.join(new_backup_dir, "size")
-    touch_dir(new_backup_dir)
-    with open(BACKUPS_SEQ_FILE_PATH) as f:
-        seq_num = int(f.read())
-    with open(BACKUPS_SEQ_FILE_PATH, "w") as f:
-        f.truncate(0)
-        f.write(str(seq_num + 1))
-        f.flush()
-    log("Compressing")
-    new_backup_file = os.path.join(new_backup_dir, "data.tar.lzo")
-    pacman_dir = os.path.join(CODE_DIR, ".pacman")
-    jsc_recipe_dir = os.path.join(JSC_DIR, "recipe")
-    if not os.path.isdir(pacman_dir):
-        pacman_dir = ""
-    subprocess.check_call("tar --use-compress-program=lzop --exclude='{code_dir}/.pacman/cache' --exclude='{code_dir}/.pacman/db/sync' --exclude='lost+found' -cf {new_backup_file} {code_dir}/* {pacman_dir} {jsc_recipe_dir}".format(new_backup_file=new_backup_file, code_dir=CODE_DIR, pacman_dir=pacman_dir, jsc_recipe_dir=jsc_recipe_dir), shell=True)
-    lzop_info = subprocess.check_output("lzop --info {new_backup_file}".format(new_backup_file=new_backup_file).split(" ")).decode("utf-8")
-    for entry in lzop_info.split(" "):
-        # the first digit we find is the uncompressed size
-        if entry.isdigit():
-            with open(size_file, "w+") as f:
-                f.truncate(0)
-                f.write(entry)
-                f.flush()
-            break
-    log("Saving recipe")
-    if os.path.isdir(recipe_dir):
-        subprocess.check_call("cp -r {recipe_dir} {new_backup_dir}".format(recipe_dir=recipe_dir, new_backup_dir=new_backup_dir), shell=True)
-    sync_dir(CODE_DIR)
-    created_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SUTC")
-    backup_target_dir = os.path.join(BACKUPS_DIR, "{seq_num}@{created_time}".format(seq_num=seq_num, created_time=created_time))
-    log("Finnishing up")
-    subprocess.check_call("mv {new_backup_dir} {backup_target_dir}".format(new_backup_dir=new_backup_dir, backup_target_dir=backup_target_dir), shell=True)
-
-
-re_backup_name = re.compile(r"(\d)+@(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})([\w\-\+]+)")
-
-
-def backup_ls():
-    backup_list = []
-    for node in os.listdir(BACKUPS_DIR):
-        match = re.match(re_backup_name, node)
-        if match is not None:
-            m_id = match.group(1)
-            m_date = match.group(2)
-            m_time = match.group(3)
-            m_tz = match.group(4)
-            backup_dir = os.path.join(BACKUPS_DIR, node)
-            jumpstart_recipe_path = os.path.join(backup_dir, "recipe", "src", "Jumpstart-Recipe")
-            if os.path.isfile(jumpstart_recipe_path):
-                with open(jumpstart_recipe_path) as f:
-                    for line in f.readlines():
-                        if line.startswith("name"):
-                            m_recipe_name = line.split(" ")[1].strip()
-                            break
-            else:
-                m_recipe_name = "<broken/unknown>"
-            backup_list.append("{id}: {date} {time} {tz}, {recipe_name}".format(id=m_id, date=m_date, time=m_time, tz=m_tz, recipe_name=m_recipe_name))
-    return backup_list
-
-
 def sizeof_fmt(num, suffix="B"):
     for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, "Yi", suffix)
-
-
-def backup_du():
-    # STEP1: total disk size
-    stat_code_dir = os.statvfs(CODE_DIR)
-    code_dir_total_b = stat_code_dir.f_frsize * stat_code_dir.f_blocks
-    backup_list = []
-    for node in os.listdir(BACKUPS_DIR):
-        match = re.match(re_backup_name, node)
-        if match is not None:
-            m_id = match.group(1)
-            m_date = match.group(2)
-            m_time = match.group(3)
-            m_tz = match.group(4)
-            backup_dir = os.path.join(BACKUPS_DIR, node)
-            jumpstart_recipe_path = os.path.join(backup_dir, "recipe", "src", "Jumpstart-Recipe")
-            if os.path.isfile(jumpstart_recipe_path):
-                with open(jumpstart_recipe_path) as f:
-                    for line in f.readlines():
-                        if line.startswith("name"):
-                            m_recipe_name = line.split(" ")[1].strip()
-                            break
-            else:
-                m_recipe_name = "<broken/unknown>"
-            backup_file = os.path.join(backup_dir, "data.tar.lzo")
-            backup_file_stat = os.stat(backup_file)
-            percent_of_total = "{:.1%}".format(backup_file_stat.st_size / code_dir_total_b)
-            backup_file_size = sizeof_fmt(backup_file_stat.st_size)
-            with open(os.path.join(backup_dir, "size")) as f:
-                backup_file_raw_size = sizeof_fmt(int(f.read()))
-            backup_list.append("{id}: {date} {time} {tz}, {recipe_name}, {backup_file_size} ({percent_of_total} of disk) ({backup_file_raw_size} raw)"
-                               .format(id=m_id, date=m_date, time=m_time, tz=m_tz, recipe_name=m_recipe_name, backup_file_size=backup_file_size, percent_of_total=percent_of_total, backup_file_raw_size=backup_file_raw_size))
-    return backup_list
-
-
-def backup_rm(backup_id):
-    for node in os.listdir(BACKUPS_DIR):
-        match = re.match(re_backup_name, node)
-        if match is not None:
-            m_id = match.group(1)
-            if m_id == backup_id:
-                backup_dir = os.path.join(BACKUPS_DIR, node)
-                deleted_backup_dir = os.path.join(BACKUPS_DIR, "deleted-backup")
-                subprocess.check_call("mv {backup_dir} {deleted_backup_dir}".format(backup_dir=backup_dir, deleted_backup_dir=deleted_backup_dir), shell=True)
-                sync_dir(CODE_DIR)
-                subprocess.check_call("rm -rf {deleted_backup_dir}".format(deleted_backup_dir=deleted_backup_dir), shell=True)
-                break
 
 
 def clean(datasets):
@@ -372,7 +247,6 @@ def clean(datasets):
                     subprocess.check_call("rm -rf {node_path}".format(node_path=node_path), shell=True)
             recipe_reset()
             do_init({})
-            do_sync({})
             log("{dataset} was cleaned".format(dataset=dataset))
 
 
@@ -492,26 +366,6 @@ def git_checkout_tag(src, tag):
     return subprocess.check_call("cd %s; git checkout %s -q"%(src, tag), shell=True)
 
 
-def sync_software_list(url, session_key, software_list):
-    try:
-        request = urllib2.Request(url, data=software_list.encode())
-        request.add_header("Authorization", "Session-Key {session_key}".format(session_key=session_key))
-        request.add_header("Content-Type", "application/json".format(session_key=session_key))
-        response = urllib2.urlopen(request)
-        if response.getcode() != httplib.OK:
-            return None, {"code": DO_SYNC_SERVER_FAILED, "message": "software list not accepted"}
-        is_software_list_synced_file = os.path.join(JSC_DIR, "recipe", "is-software-list-synced")
-        if os.path.isfile(is_software_list_synced_file):
-            with open(is_software_list_synced_file, "w") as f:
-                f.truncate(0)
-                f.write("1")
-                f.flush()
-        return None, None
-    except urllib2.URLError as e:
-        log(str(e))
-        return None, {"code": DO_SYNC_HTTP_ERROR, "message": "an error occured communicating with the server"}
-
-
 ################################################################################
 ############################### Recipe functions ###############################
 ################################################################################
@@ -551,11 +405,6 @@ def rc_package(state, args):
     success, installed_packages = package(args["pkg"])
     if not success:
         raise RecipeRuntimeError("package failed")
-    if "package" not in state["software_list"]:
-        state["software_list"]["package"] = {}
-    for pkg in installed_packages.keys():
-        state["software_list"]["package"][pkg] = {}
-        state["software_list"]["package"][pkg]["version"] = installed_packages[pkg]
     return state
 
 
@@ -582,13 +431,6 @@ def rc_gd(state, args):
         if n_ref is not None:
             ref = n_ref
     if success:
-        if "gd" not in state["software_list"]:
-            state["software_list"]["gd"] = {}
-        state["software_list"]["gd"][args["dst"]] = {
-            "ref": ref,
-            "commit": commit,
-            "repo": args["repo"]
-        }
         if not is_dev:
             rmtree(os.path.join(args["dst"], ".git"))
         return state
@@ -689,20 +531,6 @@ def do_assert_is_assembly(args):
     return True, None
 
 
-def do_backup(args):
-    if args["new"]:
-        backup_new()
-        return None, None
-    elif args["du"]:
-        return backup_du(), None
-    elif args["rm"]:
-        backup_id = args["id"]
-        backup_rm(backup_id)
-        return None, None
-    else:
-        return backup_ls(), None
-
-
 def do_clean(args):
     if args["--all"]:
         datasets = ["state", "code"]
@@ -715,17 +543,9 @@ def do_clean(args):
 
 
 def do_check_init(args):
-    for node in (JSC_DIR, BACKUPS_DIR):
-        if not os.path.exists(node):
-            return {"needs_init": True}, None
-    if not os.path.exists(BACKUPS_SEQ_FILE_PATH):
+    if not os.path.exists(JSC_DIR):
         return {"needs_init": True}, None
     return {"needs_init": False}, None
-
-
-def do_clone(args):
-    # Low priotiry. Do later.
-    return None, None
 
 
 def do_deploy_reset_check(args):
@@ -774,16 +594,9 @@ def do_deploy_finalize(args):
         return None, {"code": DO_DEPLOY_NO_NEWRECIPE, "message": "There is no recipe script to execute"}
     # 6. A disk sync is performed on /app/code.
     sync_dir(CODE_DIR)
-    # 7. The software list is exported as JSON to .jsc/new-recipe/software-list.
-    software_list = json.dumps(state["software_list"])
-    write_file([os.path.join(NEW_RECIPE_PATH, "software-list"), software_list])
     # 8. The file .jsc/new-recipe/is-dev is created with the content 1 when
     #    --dev is specified, otherwise 0.
     write_file([os.path.join(NEW_RECIPE_PATH, "is-dev"), is_dev_flag])
-    # 9. The file .jsc/new-recipe/is-software-list-synced is created with
-    #    the content 0.
-    is_software_list_path = os.path.join(NEW_RECIPE_PATH, "is-software-list-synced")
-    write_file([is_software_list_path, "0"])
     # 10. The file .jsc/new-recipe/deploy-time is created with the current
     #     time in rfc 3339 format with zero precision.
     remote_time = now3339()
@@ -794,10 +607,6 @@ def do_deploy_finalize(args):
     mvtree([NEW_RECIPE_PATH, RECIPE_PATH])
     # 13. A disk sync is performed on /app/code.
     sync_dir(CODE_DIR)
-    # 14. A software list sync is performed.
-    result, err = do_sync(None)
-    if err is not None:
-        log("softwarelist sync failed, please try to sync manually")
     # 15. Informing the user that the deploy was succesful.
     return None, None
 
@@ -807,16 +616,10 @@ def do_env(args):
 
 
 def do_init(args):
-    for node in (JSC_DIR, BACKUPS_DIR):
-        if not os.path.exists(node):
-            touch_dir(node)
-    if not os.path.exists(BACKUPS_SEQ_FILE_PATH):
-        with open(BACKUPS_SEQ_FILE_PATH, "w+") as f:
-            f.write("1")
+    if not os.path.exists(JSC_DIR):
+        touch_dir(JSC_DIR)
     if os.path.exists(NEW_RECIPE_PATH):
         shutil.rmtree(NEW_RECIPE_PATH)
-    if os.path.exists(NEW_BACKUP_DIR):
-        shutil.rmtree(NEW_BACKUP_DIR)
     return None, None
 
 
@@ -835,60 +638,9 @@ def do_lock_session(lock_content):
         return None, {"code": "", "message": "File lock is already acquired by [{who}] since [{when}]".format(who=lock_content["hostname"], when=lock_content["unix_epoch"])}
 
 
-def do_revert(args):
-    backup_id = args["id"]
-    if not is_code_dir_clean():
-        return None, {"code": DO_REVERT_NOT_CLEAN, "message": "{code_dir} is not clean".format(code_dir=CODE_DIR)}
-    reverted = False
-    for backup_dir in os.listdir(BACKUPS_DIR):
-        match = re.match(re_backup_name, backup_dir)
-        if match is not None:
-            m_id = match.group(1)
-            if m_id == backup_id:
-                backup_dir_path = os.path.join(BACKUPS_DIR, backup_dir)
-                backup_archive = os.path.join(backup_dir_path, "data.tar.lzo")
-                subprocess.check_call("tar -xf {backup_archive} -C /".format(backup_archive=backup_archive), shell=True)
-                recipe_file_path = os.path.join(backup_dir_path, "recipe")
-                if os.path.isfile(recipe_file_path):
-                    subprocess.call("mv {recipe_file_path {jsc_dir}/new-recipe".format(recipe_file_path=recipe_file_path, jsc_dir=JSC_DIR), shell=True)
-                reverted = True
-                break
-    if reverted:
-        is_software_list_synced_file = os.path.join(JSC_DIR, "recipe", "is-software-list-synced")
-        if os.path.isfile(is_software_list_synced_file):
-            with open(is_software_list_synced_file, "w") as f:
-                f.truncate(0)
-                f.write("0")
-                f.flush()
-        do_sync({})
-        return None, None
-    return None, {"code": DO_REVERT_INVALID_ID, "message": "backup id does not exist"}
-
-
 def do_run(args):
     args = ["{code_dir}/init".format(code_dir=CODE_DIR)]
     subproc(args)
-    return None, None
-
-
-def do_sync(args):
-    env = env_json()
-    if "software_list_sync_url" in env["ident"]["container"]:
-        url = env["ident"]["container"]["software_list_sync_url"]
-        session_key = env["ident"]["container"]["session_key"]
-        recipe_path = os.path.join(JSC_DIR, "recipe")
-        if not os.path.isdir(recipe_path):
-            software_list = json.dumps({"gd": {}, "package": {}})
-            return sync_software_list(url, session_key, software_list)
-        else:
-            is_synced_file_path = os.path.join(recipe_path, "is-software-list-synced")
-            with open(is_synced_file_path) as f:
-                fc = f.read().strip()
-                if int(fc) != 0:
-                    return None, None
-            with open("{recipe_path}/software-list".format(recipe_path=RECIPE_PATH)) as f:
-                software_list = f.read().strip()
-                return sync_software_list(url, session_key, software_list)
     return None, None
 
 
@@ -912,19 +664,11 @@ def do_status(args):
             recipe_deploy_time = f.read().replace("T", " ")
     output["recipe_name"] = recipe_name
     output["deploy_time"] = recipe_deploy_time
-    backups_count = len(backup_ls())
-    output["total_backups"] = backups_count
     state_total_size, state_used_size, state_percent_used = disk_usage_stats_pretty(STATE_DIR)
     output["state_usage"] = {"dir": STATE_DIR,
                              "used": state_used_size,
                              "total": state_total_size,
                              "percent_used": state_percent_used}
-    try:
-        with open(os.path.join(RECIPE_PATH, "software-list")) as f:
-            software = json.loads(f.read())
-            output["software"] = software
-    except IOError:
-        pass
     return output, None
 
 
@@ -1014,11 +758,7 @@ def test():
     # Set up at test script
     commands = [("do_status", {}),
                 ("do_status", {}),
-                ("do_backup", {"new": False, "du": False, "rm": False}),
-#                ("do_backup", {"new": True, "du": False, "rm": False}),
-                ("do_backup", {"new": False, "du": True, "rm": False}),
                 ("do_env", {}),
-                ("do_sync", {}),
                 ("do_status", {"-v": False}),
                 ("do_status", {"-v": True}),
                 ("do_clean", {"--all": True}),

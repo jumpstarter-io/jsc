@@ -32,9 +32,6 @@ Although it's designed to run in python3, it still needs support for python2 sin
 CODE_DIR = "/app/code"
 STATE_DIR = "/app/state"
 JSC_DIR = os.path.join(CODE_DIR, ".jsc")
-BACKUPS_DIR = os.path.join(JSC_DIR, "backups")
-BACKUPS_SEQ_FILE_PATH = os.path.join(BACKUPS_DIR, "seq")
-NEW_BACKUP_DIR = os.path.join(BACKUPS_DIR, "new-backup")
 LOCK_FILE = os.path.join(JSC_DIR, "lock")
 RECIPE_PATH = os.path.join(JSC_DIR, "recipe")
 NEW_RECIPE_PATH = os.path.join(JSC_DIR, "new-recipe")
@@ -220,26 +217,17 @@ def lock_session(lock_content):
 
 @pythonify_args
 def check_init():
-    for node in (JSC_DIR, BACKUPS_DIR):
-        if not os.path.exists(node):
+    if not os.path.exists(JSC_DIR):
             return False, None
-    if not os.path.exists(BACKUPS_SEQ_FILE_PATH):
-        return False, None
     return True, None
 
 
 @pythonify_args
 def init():
-    for node in (JSC_DIR, BACKUPS_DIR):
-        if not os.path.exists(node):
-            touch_dir(node)
-    if not os.path.exists(BACKUPS_SEQ_FILE_PATH):
-        with open(BACKUPS_SEQ_FILE_PATH, 'w+') as f:
-            f.write("1")
+    if not os.path.exists(JSC_DIR):
+            touch_dir(JSC_DIR)
     if os.path.exists(NEW_RECIPE_PATH):
         shutil.rmtree(NEW_RECIPE_PATH)
-    if os.path.exists(NEW_BACKUP_DIR):
-        shutil.rmtree(NEW_BACKUP_DIR)
 
 
 @pythonify_args
@@ -284,27 +272,12 @@ def status_short(local_version, verbose):
     log_ok("    deployed recipe: {recipe_name}".format(recipe_name=recipe_name))
     if recipe_deploy_time is not None:
         log_ok("        at {recipe_deploy_time}".format(recipe_deploy_time=recipe_deploy_time))
-    backups_count = len(backup_ls())
-    log_ok("total backups: {num_backups}".format(num_backups="<none>" if backups_count == 0 else backups_count))
 
     state_total_size, state_used_size, state_percent_used = disk_usage_stats_pretty(STATE_DIR)
     log_ok("{code_dir}: {used} used of {total} ({percent_used} free)".format(code_dir=STATE_DIR,
                                                                              used=state_used_size,
                                                                              total=state_total_size,
                                                                              percent_used=state_percent_used))
-    if verbose:
-        try:
-            with open(os.path.join(RECIPE_PATH, "software-list")) as f:
-                software = json.loads(f.read())
-                package_lines = "\n".join(["\t{pkg}: [{ver}]".format(pkg=pkg, ver=software["package"][pkg]["version"]) for pkg in software["package"]])
-                gd_lines = "\n".join(["\t{path}: [{ref}] [{src}] [{commit}]".format(path=path,
-                                                                                    ref=software["gd"][path]["ref"],
-                                                                                    src=software["gd"][path]["repo"],
-                                                                                    commit=software["gd"][path]["commit"][0:8])
-                                      for path in software["gd"]])
-                log_ok("\nDeployed packages:\n{pkg}\n\nGit deployed software:\n{gd}".format(pkg=package_lines, gd=gd_lines))
-        except (IOError, FileNotFoundError):
-            pass
 
 
 @pythonify_args
@@ -315,127 +288,12 @@ def is_code_dir_clean():
     return True
 
 
-@pythonify_args
-def backup_new():
-    log("Backup starting")
-    recipe_dir = os.path.join(JSC_DIR, "recipe")
-    new_backup_dir = os.path.join(BACKUPS_DIR, "new-backup")
-    size_file = os.path.join(new_backup_dir, "size")
-    touch_dir(new_backup_dir)
-    with open(BACKUPS_SEQ_FILE_PATH) as f:
-        seq_num = int(f.read())
-    with open(BACKUPS_SEQ_FILE_PATH, "w") as f:
-        f.truncate(0)
-        f.write(str(seq_num + 1))
-        f.flush()
-    log("Compressing")
-    new_backup_file = os.path.join(new_backup_dir, "data.tar.lzo")
-    pacman_dir = os.path.join(CODE_DIR, ".pacman")
-    if not os.path.isdir(pacman_dir):
-        pacman_dir = ""
-    subprocess.check_call("tar --use-compress-program=lzop --exclude='{code_dir}/.pacman/cache' --exclude='{code_dir}/.pacman/db/sync' --exclude='lost+found' -cf {new_backup_file} {code_dir}/* {pacman_dir}".format(new_backup_file=new_backup_file, code_dir=CODE_DIR, pacman_dir=pacman_dir), shell=True)
-    lzop_info = subprocess.check_output("lzop --info {new_backup_file}".format(new_backup_file=new_backup_file).split(" ")).decode("utf-8")
-    for entry in lzop_info.split(" "):
-        # the first digit we find is the uncompressed size
-        if entry.isdigit():
-            log("Uncompressed size {}".format(lzop_info))
-            with open(size_file, "w+") as f:
-                f.truncate(0)
-                f.write(entry)
-                f.flush
-            break
-    log("Saving recipe")
-    if os.path.isdir(recipe_dir):
-        subprocess.check_call("cp -r {recipe_dir} {new_backup_dir}".format(recipe_dir=recipe_dir, new_backup_dir=new_backup_dir), shell=True)
-    sync_dir(CODE_DIR)
-    created_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SUTC")
-    backup_target_dir = os.path.join(BACKUPS_DIR, "{seq_num}@{created_time}".format(seq_num=seq_num, created_time=created_time))
-    log("Finnishing up")
-    subprocess.check_call("mv {new_backup_dir} {backup_target_dir}".format(new_backup_dir=new_backup_dir, backup_target_dir=backup_target_dir), shell=True)
-
-
-re_backup_name = re.compile(r"(\d)+@(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})([\w\-\+]+)")
-
-
-@pythonify_args
-def backup_ls():
-    backup_list = []
-    for node in os.listdir(BACKUPS_DIR):
-        match = re.match(re_backup_name, node)
-        if match is not None:
-            m_id = match.group(1)
-            m_date = match.group(2)
-            m_time = match.group(3)
-            m_tz = match.group(4)
-            backup_dir = os.path.join(BACKUPS_DIR, node)
-            jumpstart_recipe_path = os.path.join(backup_dir, "recipe", "src", "Jumpstart-Recipe")
-            if os.path.isfile(jumpstart_recipe_path):
-                with open(jumpstart_recipe_path) as f:
-                    for line in f.readlines():
-                        if line.startswith("name"):
-                            m_recipe_name = line.split(" ")[1].strip()
-                            break
-            else:
-                m_recipe_name = "<broken/unknown>"
-            backup_list.append("{id}: {date} {time} {tz}, {recipe_name}".format(id=m_id, date=m_date, time=m_time, tz=m_tz, recipe_name=m_recipe_name))
-    return backup_list
-
-
 def sizeof_fmt(num, suffix='B'):
     for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Yi', suffix)
-
-
-@pythonify_args
-def backup_du():
-    # STEP1: total disk size
-    stat_code_dir = os.statvfs(CODE_DIR)
-    code_dir_total_b = stat_code_dir.f_frsize * stat_code_dir.f_blocks
-    backup_list = []
-    for node in os.listdir(BACKUPS_DIR):
-        match = re.match(re_backup_name, node)
-        if match is not None:
-            m_id = match.group(1)
-            m_date = match.group(2)
-            m_time = match.group(3)
-            m_tz = match.group(4)
-            backup_dir = os.path.join(BACKUPS_DIR, node)
-            jumpstart_recipe_path = os.path.join(backup_dir, "recipe", "src", "Jumpstart-Recipe")
-            if os.path.isfile(jumpstart_recipe_path):
-                with open(jumpstart_recipe_path) as f:
-                    for line in f.readlines():
-                        if line.startswith("name"):
-                            m_recipe_name = line.split(" ")[1].strip()
-                            break
-            else:
-                m_recipe_name = "<broken/unknown>"
-            backup_file = os.path.join(backup_dir, "data.tar.lzo")
-            backup_file_stat = os.stat(backup_file)
-            percent_of_total = "{:.1%}".format(backup_file_stat.st_size / code_dir_total_b)
-            backup_file_size = sizeof_fmt(backup_file_stat.st_size)
-            with open(os.path.join(backup_dir, "size")) as f:
-                backup_file_raw_size = sizeof_fmt(int(f.read()))
-            backup_list.append("{id}: {date} {time} {tz}, {recipe_name}, {backup_file_size} ({percent_of_total} of disk) ({backup_file_raw_size} raw)"
-                               .format(id=m_id, date=m_date, time=m_time, tz=m_tz, recipe_name=m_recipe_name, backup_file_size=backup_file_size, percent_of_total=percent_of_total, backup_file_raw_size=backup_file_raw_size))
-    return backup_list
-
-
-@pythonify_args
-def backup_rm(backup_id):
-    for node in os.listdir(BACKUPS_DIR):
-        match = re.match(re_backup_name, node)
-        if match is not None:
-            m_id = match.group(1)
-            if m_id == backup_id:
-                backup_dir = os.path.join(BACKUPS_DIR, node)
-                deleted_backup_dir = os.path.join(BACKUPS_DIR, "deleted-backup")
-                subprocess.check_call("mv {backup_dir} {deleted_backup_dir}".format(backup_dir=backup_dir, deleted_backup_dir=deleted_backup_dir), shell=True)
-                sync_dir(CODE_DIR)
-                subprocess.check_call("rm -rf {deleted_backup_dir}".format(deleted_backup_dir=deleted_backup_dir), shell=True)
-                break
 
 
 @pythonify_args
@@ -461,24 +319,6 @@ def clean(datasets):
 
 
 @pythonify_args
-def revert(backup_id):
-    if not is_code_dir_clean():
-        return False, "{code_dir} is not clean".format(code_dir=CODE_DIR)
-    for backup_dir in os.listdir(BACKUPS_DIR):
-        match = re.match(re_backup_name, backup_dir)
-        if match is not None:
-            m_id = match.group(1)
-            if m_id == backup_id:
-                backup_dir_path = os.path.join(BACKUPS_DIR, backup_dir)
-                backup_archive = os.path.join(backup_dir_path, "data.tar.lzo")
-                subprocess.check_call("tar -xf {backup_archive} -C /".format(backup_archive=backup_archive), shell=True)
-                recipe_file_path = os.path.join(backup_dir_path, "recipe")
-                if os.path.isfile(recipe_file_path):
-                    subprocess.call("mv {recipe_file_path {jsc_dir}/new-recipe".format(recipe_file_path=recipe_file_path, jsc_dir=JSC_DIR), shell=True)
-    return True, None
-
-
-@pythonify_args
 def run():
     poller = select.epoll()
     try:
@@ -496,33 +336,6 @@ def run():
         break
     return True,
 
-
-@pythonify_args
-def sync():
-    recipe_path = os.path.join(JSC_DIR, "recipe")
-    if not os.path.isdir(recipe_path):
-        return True, None
-    is_synced_file_path = os.path.join(recipe_path, "is-software-list-synced")
-    with open(is_synced_file_path) as f:
-        if int(f.read().strip()) != 0:
-            return True, None
-    env = env_json()
-    if "software_list_sync_url" in env['ident']['container']:
-        with open("{recipe_path}/software-list".format(recipe_path=RECIPE_PATH)) as f:
-            software_list_content = f.read()
-        try:
-            request = url.Request(env["ident"]["container"]["software_list_sync_url"], data=software_list_content.encode())
-            request.add_header("Authorization", "Session-Key {session_key}".format(session_key=env["ident"]["container"]["session_key"]))
-            response = url.urlopen(request)
-            if response.status != httplib.OK:
-                return False, response.reason
-            with open(is_synced_file_path, "w") as f:
-                f.truncate(0)
-                f.write("1")
-                f.flush()
-        except urllib.error.HTTPError as e:
-            return False, "{}".format(e)
-    return True, None
 
 
 @pythonify_args

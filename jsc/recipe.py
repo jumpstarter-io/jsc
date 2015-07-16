@@ -12,7 +12,7 @@ class RecipeRuntimeError(BaseException):
 
 def run(rpc, recipe, is_dev):
     lc = 0
-    state = {"software_list": {}, "name": None, "is_dev": is_dev}
+    state = {"name": None, "is_dev": is_dev}
     try:
         for statement in rparser.parse(recipe):
             # Everything after # is comment.
