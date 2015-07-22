@@ -171,13 +171,12 @@ class TestClient(unittest.TestCase):
             pass
 
     def test_do_check_init(self):
-        for d in (BACKUPS_DIR, JSC_DIR, BACKUPS_SEQ_FILE_PATH):
-            if os.path.isfile(d):
-                os.remove(d)
-            else:
-                shutil.rmtree(d)
-            assert self._rpc.do_check_init()['needs_init'] is True
-            self._rpc.do_init()
+        if os.path.isfile(JSC_DIR):
+            os.remove(JSC_DIR)
+        else:
+            shutil.rmtree(JSC_DIR)
+        assert self._rpc.do_check_init()['needs_init'] is True
+        self._rpc.do_init()
         assert self._rpc.do_check_init()['needs_init'] is False
 
     def test_do_env(self):
@@ -219,15 +218,6 @@ class TestClient(unittest.TestCase):
         state = jsc.recipe.run(self._rpc, "name test", False)
         assert "name" in state
         assert state["name"] == "test"
-
-    def test_rc_package(self):
-        state = jsc.recipe.run(self._rpc, "package nodejs", False)
-        assert "software_list" in state
-        assert "package" in state['software_list']
-        assert "nodejs" in state['software_list']['package']
-        state = jsc.recipe.run(self._rpc, "package nginx php5", False)
-        assert "nginx" in state['software_list']['package']
-        assert "php5" in state['software_list']['package']
 
     def test_rc_install(self):
         # single file

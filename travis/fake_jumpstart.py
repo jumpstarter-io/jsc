@@ -36,40 +36,9 @@ def touch_dir(directory):
 touch_dir(os.path.dirname(INSTALLED_PACKAGES_FILE))
 
 
-def get_installed_packages():
-    if os.path.exists(INSTALLED_PACKAGES_FILE):
-        with open(INSTALLED_PACKAGES_FILE) as f:
-            fc = f.read()
-            if fc == "":
-                return {}
-            return json.loads(fc)
-    return {}
-
-
-def update_package_list(package):
-    packages = get_installed_packages()
-    packages[package] = AVAILABLE_PACKAGES[package]
-    with open(INSTALLED_PACKAGES_FILE, "wb+") as f:
-        f.truncate(0)
-        f.write(json.dumps(packages).encode())
-
-
-def sync_packages(packages):
-    for package in packages:
-        if package not in AVAILABLE_PACKAGES:
-            print("error: target not found: {package}".format(package=package))
-            return
-
-    packages_w_ver = [AVAILABLE_PACKAGES[p] for p in packages]
-    print("Packages ({num_pkgs}) {packages}".format(num_pkgs=len(packages), packages="  ".join(packages_w_ver)))
-    for package in packages:
-        update_package_list(package)
-
 
 if __name__ == '__main__':
     try:
         args = docopt.docopt(__doc__)
-        if args['-S']:
-            sync_packages(args['PACKAGES'])
     except docopt.DocoptExit as e:
         print(str(e))
